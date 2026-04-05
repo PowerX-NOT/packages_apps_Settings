@@ -20,7 +20,6 @@ import androidx.lifecycle.lifecycleScope
 import androidx.preference.PreferenceScreen
 import com.android.settings.core.SubSettingLauncher
 import com.android.settings.dashboard.DashboardFragment
-import com.android.settingslib.widget.SelectorWithWidgetPreference
 import java.io.File
 import java.nio.charset.StandardCharsets
 import kotlinx.coroutines.Dispatchers
@@ -41,7 +40,7 @@ private data class RestoreRow(
 
 class TrueBackupRestoreAppListFragment : DashboardFragment() {
 
-    private var selectedPackage: String? = null
+    private lateinit var selectedPackages: MutableSet<String>
     /** Skip one [onResume] after [onCreatePreferences] to avoid double [populateRestoreList]. */
     private var skipNextResumeRefresh = true
 
@@ -55,9 +54,9 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
         ) { _, bundle ->
             if (bundle.getBoolean(TrueBackupRestoreBackupDetailsFragment.EXTRA_DELETED, false)) {
                 val deletedPkg = bundle.getString(TrueBackupRestoreBackupDetailsFragment.EXTRA_PACKAGE_NAME)
-                if (deletedPkg != null && selectedPackage == deletedPkg) {
-                    selectedPackage = null
-                    TrueBackupPreferences.setSelectedPackage(requireContext(), null)
+                if (deletedPkg != null) {
+                    selectedPackages.remove(deletedPkg)
+                    TrueBackupPreferences.setSelectedPackages(requireContext(), selectedPackages)
                 }
                 populateRestoreList()
             }
@@ -68,7 +67,7 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         super.onCreatePreferences(savedInstanceState, rootKey)
         skipNextResumeRefresh = true
-        selectedPackage = TrueBackupPreferences.getSelectedPackage(requireContext())
+        selectedPackages = TrueBackupPreferences.getSelectedPackages(requireContext())
         if (TrueBackupPreferences.getBackupPath(requireContext()) == null) {
             Toast.makeText(requireContext(), R.string.true_backup_toast_no_path, Toast.LENGTH_LONG).show()
             return
@@ -82,10 +81,10 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
             val ctx = requireContext()
             val path = TrueBackupPreferences.getBackupPath(ctx)
             val rows = withContext(Dispatchers.Default) { computeRows(ctx) }
-            val sel = selectedPackage
-            if (sel != null && rows.none { it.packageName == sel }) {
-                selectedPackage = null
-                TrueBackupPreferences.setSelectedPackage(ctx, null)
+            val beforeSize = selectedPackages.size
+            selectedPackages.retainAll { pkg -> rows.any { it.packageName == pkg } }
+            if (beforeSize != selectedPackages.size) {
+                TrueBackupPreferences.setSelectedPackages(ctx, selectedPackages)
             }
             preferenceScreen?.let { screen ->
                 screen.removeAllPreferences()
@@ -124,19 +123,8 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
     }
 
     private fun schedulePollIfNeeded() {
-        TrueBackupOperationPoller.resumeWatchingIfOperationInProgress(
-            requireContext(),
-            TrueBackupOperationPoller.Kind.RESTORE,
-        )
+        TrueBackupOperationPoller.resumeWatchingIfOperationInProgress(requireContext())
         activity?.invalidateOptionsMenu()
-    }
-
-    private fun isTrueBackupOperationInProgress(): Boolean {
-        return try {
-            TrueBackupBinder.get()?.isOperationInProgress == true
-        } catch (_: RemoteException) {
-            false
-        }
     }
 
     override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
@@ -146,8 +134,7 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
 
     override fun onPrepareOptionsMenu(menu: Menu) {
         super.onPrepareOptionsMenu(menu)
-        menu.findItem(R.id.true_backup_restore_start)?.isEnabled =
-            !isTrueBackupOperationInProgress() && TrueBackupBinder.get() != null
+        menu.findItem(R.id.true_backup_restore_start)?.isEnabled = TrueBackupBinder.get() != null
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -169,31 +156,45 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
             Toast.makeText(requireContext(), R.string.true_backup_toast_no_path, Toast.LENGTH_LONG).show()
             return
         }
-        val pkg = selectedPackage
-        if (pkg == null) {
+        if (selectedPackages.isEmpty()) {
             Toast.makeText(requireContext(), R.string.true_backup_toast_no_apps_selected, Toast.LENGTH_SHORT).show()
             return
         }
+        val screen = preferenceScreen
+        val labelsByPkg = selectedPackages.associateWith { pkg ->
+            screen?.findPreference<androidx.preference.Preference>(pkg)?.title?.toString() ?: pkg
+        }
+        val toQueue = selectedPackages.toList()
+        val appCtx = requireContext().applicationContext
         lifecycleScope.launch(Dispatchers.IO) {
-            var started = false
-            try {
-                svc.restorePackage(pkg, path)
-                started = true
-            } catch (e: RemoteException) {
-                Log.e(LOG_TAG, "restore $pkg", e)
+            var startedAny = false
+            for (pkg in toQueue) {
+                try {
+                    svc.restorePackage(pkg, path)
+                    startedAny = true
+                    val label = labelsByPkg[pkg] ?: pkg
+                    withContext(Dispatchers.Main) {
+                        TrueBackupOperationPoller.onUserQueuedOperation(appCtx, true, pkg, label)
+                    }
+                } catch (e: RemoteException) {
+                    Log.e(LOG_TAG, "restore $pkg", e)
+                }
             }
-            if (started) {
-                withContext(Dispatchers.Main) {
-                    val appCtx = requireContext().applicationContext
-                    TrueBackupNotifications.notifyRestoreStarted(appCtx)
-                    TrueBackupOperationPoller.startWatchingForRestoreCompletion(appCtx)
+            withContext(Dispatchers.Main) {
+                if (startedAny) {
                     Toast.makeText(
                         requireContext(),
                         R.string.true_backup_status_restore_progress,
                         Toast.LENGTH_SHORT,
                     ).show()
-                    activity?.invalidateOptionsMenu()
+                } else {
+                    Toast.makeText(
+                        requireContext(),
+                        R.string.true_backup_toast_no_apps_selected,
+                        Toast.LENGTH_SHORT,
+                    ).show()
                 }
+                activity?.invalidateOptionsMenu()
             }
         }
     }
@@ -318,16 +319,6 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
         }
     }
 
-    private fun clearAllRadioChecksExcept(keep: SelectorWithWidgetPreference) {
-        val screen = preferenceScreen ?: return
-        for (i in 0 until screen.preferenceCount) {
-            val p = screen.getPreference(i)
-            if (p is TrueBackupAppSelectorPreference && p !== keep) {
-                p.isChecked = false
-            }
-        }
-    }
-
     private fun createPreference(row: RestoreRow): TrueBackupAppSelectorPreference {
         return TrueBackupAppSelectorPreference(requireContext()).apply {
             key = row.packageName
@@ -335,13 +326,17 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
             summary = row.packageName
             icon = row.icon
             isPersistent = false
-            isChecked = selectedPackage == row.packageName
+            isChecked = selectedPackages.contains(row.packageName)
             setOnClickListener { emitter ->
                 val key = emitter.key ?: return@setOnClickListener
-                selectedPackage = key
-                TrueBackupPreferences.setSelectedPackage(requireContext(), key)
-                clearAllRadioChecksExcept(emitter)
-                emitter.isChecked = true
+                val on = !emitter.isChecked
+                emitter.isChecked = on
+                if (on) {
+                    selectedPackages.add(key)
+                } else {
+                    selectedPackages.remove(key)
+                }
+                TrueBackupPreferences.setSelectedPackages(requireContext(), selectedPackages)
             }
             onContentClick = {
                 SubSettingLauncher(requireContext())

@@ -11,11 +11,11 @@ import com.android.settings.R
 import com.android.settingslib.widget.SelectorWithWidgetPreference
 
 /**
- * Radio selector row: tapping the main content is handled separately (e.g. app info);
- * tapping the widget area runs [SelectorWithWidgetPreference.onClick] for single-select.
+ * Checkbox selector row: tapping the main content is handled separately (e.g. app info / details);
+ * tapping the widget area toggles selection (multi-select).
  */
 class TrueBackupAppSelectorPreference(context: Context) :
-    SelectorWithWidgetPreference(context, false) {
+    SelectorWithWidgetPreference(context, true) {
 
     var onContentClick: (() -> Unit)? = null
 
