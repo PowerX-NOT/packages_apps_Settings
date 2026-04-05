@@ -203,6 +203,7 @@ import com.android.settings.security.MemtagPage;
 import com.android.settings.security.SecurityAdvancedSettings;
 import com.android.settings.security.truebackup.TrueBackupBackupAppListFragment;
 import com.android.settings.security.truebackup.TrueBackupRestoreAppListFragment;
+import com.android.settings.security.truebackup.TrueBackupRestoreBackupDetailsFragment;
 import com.android.settings.security.truebackup.TrueBackupSettingsFragment;
 import com.android.settings.security.SecuritySettings;
 import com.android.settings.shortcut.CreateShortcut;
@@ -450,6 +451,7 @@ public class SettingsGateway {
             TrueBackupSettingsFragment.class.getName(),
             TrueBackupBackupAppListFragment.class.getName(),
             TrueBackupRestoreAppListFragment.class.getName(),
+            TrueBackupRestoreBackupDetailsFragment.class.getName(),
     };
 
     public static final String[] SETTINGS_FOR_RESTRICTED = {

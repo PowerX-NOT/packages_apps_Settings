@@ -18,8 +18,9 @@ import android.view.MenuItem
 import android.widget.Toast
 import com.android.internal.logging.nano.MetricsProto
 import com.android.settings.R
-import com.android.settings.applications.appinfo.AppInfoDashboardFragment
 import androidx.lifecycle.lifecycleScope
+import androidx.preference.PreferenceScreen
+import com.android.settings.core.SubSettingLauncher
 import com.android.settings.dashboard.DashboardFragment
 import com.android.settingslib.widget.SelectorWithWidgetPreference
 import java.io.File
@@ -36,6 +37,8 @@ private data class RestoreRow(
     val label: String,
     val icon: Drawable,
     val installed: Boolean,
+    /** Directory under `…/apps/` containing [TrueBackupPaths.PACKAGE_RESTORE_CONFIG], or null. */
+    val backupPackageDir: File?,
 )
 
 class TrueBackupRestoreAppListFragment : DashboardFragment() {
@@ -78,6 +81,19 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        parentFragmentManager.setFragmentResultListener(
+            TrueBackupRestoreBackupDetailsFragment.FRAGMENT_RESULT_KEY,
+            this,
+        ) { _, bundle ->
+            if (bundle.getBoolean(TrueBackupRestoreBackupDetailsFragment.EXTRA_DELETED, false)) {
+                val deletedPkg = bundle.getString(TrueBackupRestoreBackupDetailsFragment.EXTRA_PACKAGE_NAME)
+                if (deletedPkg != null && selectedPackage == deletedPkg) {
+                    selectedPackage = null
+                    TrueBackupPreferences.setSelectedPackage(requireContext(), null)
+                }
+                populateRestoreList()
+            }
+        }
         setHasOptionsMenu(true)
     }
 
@@ -88,11 +104,17 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
             Toast.makeText(requireContext(), R.string.true_backup_toast_no_path, Toast.LENGTH_LONG).show()
             return
         }
+        populateRestoreList()
+        schedulePollIfNeeded()
+    }
+
+    private fun populateRestoreList() {
         lifecycleScope.launch {
             val ctx = requireContext()
             val path = TrueBackupPreferences.getBackupPath(ctx)
             val rows = withContext(Dispatchers.Default) { computeRows(ctx) }
             preferenceScreen?.let { screen ->
+                screen.removeAllPreferences()
                 for (row in rows) {
                     screen.addPreference(createPreference(row))
                 }
@@ -113,7 +135,6 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
                 }
             }
         }
-        schedulePollIfNeeded()
     }
 
     override fun onResume() {
@@ -226,8 +247,15 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
                             ctx.getDrawable(android.R.drawable.sym_def_app_icon)!!
                         }
                         val name = if (label.isNotEmpty()) label else pkg
+                        val backupDir = resolveBackupPackageDir(ctx, backupPath, pkg)
                         fromService.add(
-                            RestoreRow(pkg, name, icon, isPackageInstalled(pm, pkg)),
+                            RestoreRow(
+                                pkg,
+                                name,
+                                icon,
+                                isPackageInstalled(pm, pkg),
+                                backupDir,
+                            ),
                         )
                     }
                     return fromService.sortedBy { it.label.lowercase() }
@@ -243,13 +271,18 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
         val out = mutableListOf<RestoreRow>()
         appsDir.listFiles()?.forEach { pkgDir ->
             if (!pkgDir.isDirectory) return@forEach
-            val row = loadRowFromBackup(ctx, pm, pkgDir) ?: return@forEach
+            val row = loadRowFromBackup(ctx, pm, backupPath, pkgDir) ?: return@forEach
             out.add(row)
         }
         return out.sortedBy { it.label.lowercase() }
     }
 
-    private fun loadRowFromBackup(ctx: Context, pm: PackageManager, pkgDir: File): RestoreRow? {
+    private fun loadRowFromBackup(
+        ctx: Context,
+        pm: PackageManager,
+        backupPath: String,
+        pkgDir: File,
+    ): RestoreRow? {
         val config = File(pkgDir, TrueBackupPaths.PACKAGE_RESTORE_CONFIG)
         if (!config.isFile) return null
         var pkg = pkgDir.name
@@ -273,7 +306,31 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
         } catch (_: PackageManager.NameNotFoundException) {
             ctx.getDrawable(android.R.drawable.sym_def_app_icon)!!
         }
-        return RestoreRow(pkg, name, icon, isPackageInstalled(pm, pkg))
+        val resolvedDir = resolveBackupPackageDir(ctx, backupPath, pkg) ?: pkgDir
+        return RestoreRow(
+            pkg,
+            name,
+            icon,
+            isPackageInstalled(pm, pkg),
+            resolvedDir,
+        )
+    }
+
+    /** Prefer [ITrueBackupService], then [TrueBackupPaths.findBackupPackageDirLocal]. */
+    private fun resolveBackupPackageDir(ctx: Context, backupPath: String, packageName: String): File? {
+        TrueBackupBinder.get()?.let { svc ->
+            try {
+                val path = svc.resolveBackupPackageDir(backupPath, packageName)
+                if (!path.isNullOrEmpty()) {
+                    val f = File(path)
+                    if (f.isDirectory && File(f, TrueBackupPaths.PACKAGE_RESTORE_CONFIG).isFile()) {
+                        return f
+                    }
+                }
+            } catch (_: RemoteException) {
+            }
+        }
+        return TrueBackupPaths.findBackupPackageDirLocal(backupPath, packageName)
     }
 
     private fun isPackageInstalled(pm: PackageManager, packageName: String): Boolean {
@@ -310,24 +367,21 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
                 clearAllRadioChecksExcept(emitter)
                 emitter.isChecked = true
             }
-            if (row.installed) {
-                onContentClick = {
-                    try {
-                        val appInfo = requireContext().packageManager.getApplicationInfo(
-                            row.packageName,
-                            PackageManager.GET_META_DATA,
-                        )
-                        AppInfoDashboardFragment.startAppInfoFragment(
-                            AppInfoDashboardFragment::class.java,
-                            appInfo,
-                            requireContext(),
-                            metricsCategory,
-                        )
-                    } catch (_: PackageManager.NameNotFoundException) {
-                    }
-                }
-            } else {
-                onContentClick = null
+            onContentClick = {
+                SubSettingLauncher(requireContext())
+                    .setDestination(TrueBackupRestoreBackupDetailsFragment::class.java.name)
+                    .setTitleText(row.label)
+                    .setSourceMetricsCategory(metricsCategory)
+                    .setArguments(
+                        Bundle().apply {
+                            putString(TrueBackupRestoreBackupDetailsFragment.ARG_PACKAGE_NAME, row.packageName)
+                            val dir = row.backupPackageDir
+                            if (dir != null && dir.isDirectory) {
+                                putString(TrueBackupRestoreBackupDetailsFragment.ARG_BACKUP_DIR, dir.absolutePath)
+                            }
+                        },
+                    )
+                    .launch()
             }
         }
     }
@@ -337,4 +391,10 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
     override fun getPreferenceScreenResId() = R.xml.true_backup_restore_list_settings
 
     override fun getLogTag() = LOG_TAG
+}
+
+private fun PreferenceScreen.removeAllPreferences() {
+    while (preferenceCount > 0) {
+        removePreference(getPreference(0))
+    }
 }
