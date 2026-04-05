@@ -39,7 +39,8 @@ private data class BackupRow(
 
 class TrueBackupBackupAppListFragment : DashboardFragment() {
 
-    private lateinit var selectedPackages: MutableSet<String>
+    /** In-memory only; cleared when leaving this screen (new fragment instance). */
+    private val selectedPackages = mutableSetOf<String>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -48,14 +49,12 @@ class TrueBackupBackupAppListFragment : DashboardFragment() {
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         super.onCreatePreferences(savedInstanceState, rootKey)
-        selectedPackages = TrueBackupPreferences.getSelectedPackages(requireContext())
         lifecycleScope.launch {
             val ctx = requireContext()
             val rows = withContext(Dispatchers.Default) {
                 computeRows(ctx.packageManager, ctx)
             }
             selectedPackages.retainAll { pkg -> rows.any { it.packageName == pkg } }
-            TrueBackupPreferences.setSelectedPackages(ctx, selectedPackages)
             preferenceScreen?.let { screen ->
                 for (row in rows) {
                     screen.addPreference(createPreference(row))
@@ -237,7 +236,6 @@ class TrueBackupBackupAppListFragment : DashboardFragment() {
                 } else {
                     selectedPackages.remove(key)
                 }
-                TrueBackupPreferences.setSelectedPackages(requireContext(), selectedPackages)
             }
             if (row.installed) {
                 onContentClick = {
