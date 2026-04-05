@@ -19,6 +19,7 @@ import android.view.MenuItem
 import android.widget.Toast
 import com.android.internal.logging.nano.MetricsProto
 import com.android.settings.R
+import com.android.settings.applications.appinfo.AppInfoDashboardFragment
 import androidx.lifecycle.lifecycleScope
 import com.android.settings.dashboard.DashboardFragment
 import com.android.settingslib.PrimarySwitchPreference
@@ -267,6 +268,25 @@ class TrueBackupBackupAppListFragment : DashboardFragment() {
                     selectedPackages.add(row.packageName)
                 } else {
                     selectedPackages.remove(row.packageName)
+                }
+                true
+            }
+            setOnPreferenceClickListener {
+                if (!row.installed) {
+                    return@setOnPreferenceClickListener true
+                }
+                try {
+                    val appInfo = requireContext().packageManager.getApplicationInfo(
+                        row.packageName,
+                        PackageManager.GET_META_DATA,
+                    )
+                    AppInfoDashboardFragment.startAppInfoFragment(
+                        AppInfoDashboardFragment::class.java,
+                        appInfo,
+                        requireContext(),
+                        metricsCategory,
+                    )
+                } catch (_: PackageManager.NameNotFoundException) {
                 }
                 true
             }
