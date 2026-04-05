@@ -18,10 +18,10 @@ import android.view.MenuItem
 import android.widget.Toast
 import com.android.internal.logging.nano.MetricsProto
 import com.android.settings.R
+import com.android.settings.applications.appinfo.AppInfoDashboardFragment
 import androidx.lifecycle.lifecycleScope
 import com.android.settings.dashboard.DashboardFragment
-import com.android.settingslib.PrimarySwitchPreference
-import com.android.settingslib.widget.TwoTargetPreference.ICON_SIZE_MEDIUM
+import com.android.settingslib.widget.SelectorWithWidgetPreference
 import java.io.File
 import java.nio.charset.StandardCharsets
 import kotlinx.coroutines.Dispatchers
@@ -31,11 +31,16 @@ import org.json.JSONObject
 
 private const val LOG_TAG = "TrueBackupRestoreList"
 
-private data class RestoreRow(val packageName: String, val label: String, val icon: Drawable)
+private data class RestoreRow(
+    val packageName: String,
+    val label: String,
+    val icon: Drawable,
+    val installed: Boolean,
+)
 
 class TrueBackupRestoreAppListFragment : DashboardFragment() {
 
-    private val selectedPackages = mutableSetOf<String>()
+    private var selectedPackage: String? = null
     private val pollHandler = Handler(Looper.getMainLooper())
     private var operationInProgress = false
 
@@ -154,20 +159,18 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
             Toast.makeText(requireContext(), R.string.true_backup_toast_no_path, Toast.LENGTH_LONG).show()
             return
         }
-        val targets = selectedPackages.toList()
-        if (targets.isEmpty()) {
+        val pkg = selectedPackage
+        if (pkg == null) {
             Toast.makeText(requireContext(), R.string.true_backup_toast_no_apps_selected, Toast.LENGTH_SHORT).show()
             return
         }
         lifecycleScope.launch(Dispatchers.IO) {
             var started = false
-            for (pkg in targets) {
-                try {
-                    svc.restorePackage(pkg, path)
-                    started = true
-                } catch (e: RemoteException) {
-                    Log.e(LOG_TAG, "restore $pkg", e)
-                }
+            try {
+                svc.restorePackage(pkg, path)
+                started = true
+            } catch (e: RemoteException) {
+                Log.e(LOG_TAG, "restore $pkg", e)
             }
             if (started) {
                 operationInProgress = true
@@ -210,7 +213,9 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
                             ctx.getDrawable(android.R.drawable.sym_def_app_icon)!!
                         }
                         val name = if (label.isNotEmpty()) label else pkg
-                        fromService.add(RestoreRow(pkg, name, icon))
+                        fromService.add(
+                            RestoreRow(pkg, name, icon, isPackageInstalled(pm, pkg)),
+                        )
                     }
                     return fromService.sortedBy { it.label.lowercase() }
                 }
@@ -255,24 +260,61 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
         } catch (_: PackageManager.NameNotFoundException) {
             ctx.getDrawable(android.R.drawable.sym_def_app_icon)!!
         }
-        return RestoreRow(pkg, name, icon)
+        return RestoreRow(pkg, name, icon, isPackageInstalled(pm, pkg))
     }
 
-    private fun createPreference(row: RestoreRow): PrimarySwitchPreference {
-        return PrimarySwitchPreference(requireContext()).apply {
+    private fun isPackageInstalled(pm: PackageManager, packageName: String): Boolean {
+        return try {
+            pm.getPackageInfo(packageName, 0)
+            true
+        } catch (_: PackageManager.NameNotFoundException) {
+            false
+        }
+    }
+
+    private fun clearAllRadioChecksExcept(keep: SelectorWithWidgetPreference) {
+        val screen = preferenceScreen ?: return
+        for (i in 0 until screen.preferenceCount) {
+            val p = screen.getPreference(i)
+            if (p is SelectorWithWidgetPreference && p !== keep) {
+                p.isChecked = false
+            }
+        }
+    }
+
+    private fun createPreference(row: RestoreRow): SelectorWithWidgetPreference {
+        return SelectorWithWidgetPreference(requireContext(), false).apply {
             key = row.packageName
             title = row.label
             summary = row.packageName
             icon = row.icon
-            setIconSize(ICON_SIZE_MEDIUM)
-            isChecked = selectedPackages.contains(row.packageName)
-            setOnPreferenceChangeListener { _, newValue ->
-                if (newValue as Boolean) {
-                    selectedPackages.add(row.packageName)
-                } else {
-                    selectedPackages.remove(row.packageName)
+            isPersistent = false
+            isChecked = selectedPackage == row.packageName
+            setOnClickListener { emitter ->
+                val key = emitter.key ?: return@setOnClickListener
+                selectedPackage = key
+                clearAllRadioChecksExcept(emitter)
+                emitter.isChecked = true
+            }
+            if (row.installed) {
+                setExtraWidgetContentDescription(
+                    context.getString(R.string.application_info_label),
+                )
+                setExtraWidgetOnClickListener {
+                    try {
+                        val appInfo = requireContext().packageManager.getApplicationInfo(
+                            row.packageName,
+                            PackageManager.GET_META_DATA,
+                        )
+                        AppInfoDashboardFragment.startAppInfoFragment(
+                            AppInfoDashboardFragment::class.java,
+                            appInfo,
+                            requireContext(),
+                            metricsCategory,
+                        )
+                    } catch (_: PackageManager.NameNotFoundException) {
+                    }
                 }
-                true
             }
         }
     }
