@@ -15,10 +15,12 @@ import com.android.settings.R
 object TrueBackupNotifications {
 
     private const val CHANNEL_ID = "true_backup_status"
-    private const val NOTIF_BACKUP_PROGRESS = 71001
+    /** Single slot for ongoing backup/restore (replaces separate backup/restore progress IDs). */
+    private const val NOTIF_ACTIVE_OPERATION = 71001
     private const val NOTIF_BACKUP_DONE = 71002
-    private const val NOTIF_RESTORE_PROGRESS = 71003
+    private const val NOTIF_RESTORE_PROGRESS_LEGACY = 71003
     private const val NOTIF_RESTORE_DONE = 71004
+    private const val NOTIF_ALL_COMPLETE = 71007
 
     fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
@@ -45,78 +47,68 @@ object TrueBackupNotifications {
         }
     }
 
-    /** Indeterminate progress bar (animated) while work runs. */
-    private fun buildInProgress(context: Context, title: String, text: String): Notification {
-        return newBuilder(context)
+    /**
+     * Shows one ongoing notification with the current app and queue depth. Cancels legacy
+     * restore-progress id so only one progress notification is visible.
+     */
+    fun updateActiveOperationProgress(
+        context: Context,
+        operationKind: String?,
+        packageName: String?,
+        appDisplayName: String,
+        queuedAfterCurrent: Int,
+    ) {
+        val nm = context.getSystemService(NotificationManager::class.java) ?: return
+        nm.cancel(NOTIF_RESTORE_PROGRESS_LEGACY)
+        val title = when (operationKind) {
+            "restore" -> context.getString(R.string.true_backup_notif_restore_started_title)
+            else -> context.getString(R.string.true_backup_notif_backup_started_title)
+        }
+        val mainText = appDisplayName.ifEmpty { packageName ?: "" }.ifEmpty {
+            context.getString(R.string.true_backup_notif_preparing)
+        }
+        val bigText = buildString {
+            append(mainText)
+            if (packageName != null && packageName.isNotEmpty() && mainText != packageName) {
+                append("\n")
+                append(packageName)
+            }
+            if (queuedAfterCurrent > 0) {
+                append("\n")
+                append(context.getString(R.string.true_backup_notif_more_in_queue, queuedAfterCurrent))
+            }
+        }
+        val n = newBuilder(context)
             .setSmallIcon(R.drawable.ic_settings_backup)
             .setContentTitle(title)
-            .setContentText(text)
+            .setContentText(mainText)
             .setProgress(0, 0, true)
             .setOngoing(true)
             .setCategory(Notification.CATEGORY_PROGRESS)
+            .setStyle(Notification.BigTextStyle().bigText(bigText))
             .build()
+        nm.notify(NOTIF_ACTIVE_OPERATION, n)
     }
 
-    /** Finished: no progress bar, can dismiss. */
-    private fun buildComplete(context: Context, title: String, text: String): Notification {
-        return newBuilder(context)
-            .setSmallIcon(R.drawable.ic_settings_backup)
-            .setContentTitle(title)
-            .setContentText(text)
-            .setProgress(0, 0, false)
-            .setAutoCancel(true)
-            .setCategory(Notification.CATEGORY_STATUS)
-            .setStyle(Notification.BigTextStyle().bigText(text))
-            .build()
-    }
-
-    fun notifyBackupStarted(context: Context) {
+    /** Posted when the work counter returns to zero after at least one operation was observed. */
+    fun notifyAllOperationsFinished(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java) ?: return
+        nm.cancel(NOTIF_ACTIVE_OPERATION)
+        nm.cancel(NOTIF_RESTORE_PROGRESS_LEGACY)
         nm.notify(
-            NOTIF_BACKUP_PROGRESS,
-            buildInProgress(
-                context,
-                context.getString(R.string.true_backup_notif_backup_started_title),
-                context.getString(R.string.true_backup_notif_backup_started_text),
-            ),
-        )
-    }
-
-    fun notifyBackupCompleted(context: Context) {
-        val nm = context.getSystemService(NotificationManager::class.java) ?: return
-        nm.cancel(NOTIF_BACKUP_PROGRESS)
-        nm.notify(
-            NOTIF_BACKUP_DONE,
-            buildComplete(
-                context,
-                context.getString(R.string.true_backup_notif_backup_complete_title),
-                context.getString(R.string.true_backup_notif_backup_complete_text),
-            ),
-        )
-    }
-
-    fun notifyRestoreStarted(context: Context) {
-        val nm = context.getSystemService(NotificationManager::class.java) ?: return
-        nm.notify(
-            NOTIF_RESTORE_PROGRESS,
-            buildInProgress(
-                context,
-                context.getString(R.string.true_backup_notif_restore_started_title),
-                context.getString(R.string.true_backup_notif_restore_started_text),
-            ),
-        )
-    }
-
-    fun notifyRestoreCompleted(context: Context) {
-        val nm = context.getSystemService(NotificationManager::class.java) ?: return
-        nm.cancel(NOTIF_RESTORE_PROGRESS)
-        nm.notify(
-            NOTIF_RESTORE_DONE,
-            buildComplete(
-                context,
-                context.getString(R.string.true_backup_notif_restore_complete_title),
-                context.getString(R.string.true_backup_notif_restore_complete_text),
-            ),
+            NOTIF_ALL_COMPLETE,
+            newBuilder(context)
+                .setSmallIcon(R.drawable.ic_settings_backup)
+                .setContentTitle(context.getString(R.string.true_backup_notif_all_ops_complete_title))
+                .setContentText(context.getString(R.string.true_backup_notif_all_ops_complete_text))
+                .setProgress(0, 0, false)
+                .setAutoCancel(true)
+                .setCategory(Notification.CATEGORY_STATUS)
+                .setStyle(
+                    Notification.BigTextStyle()
+                        .bigText(context.getString(R.string.true_backup_notif_all_ops_complete_text)),
+                )
+                .build(),
         )
     }
 }

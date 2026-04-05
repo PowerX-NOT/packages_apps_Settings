@@ -229,6 +229,10 @@
     <string name="true_backup_notif_restore_started_text">TrueBackup</string>
     <string name="true_backup_notif_restore_complete_title">Restore finished</string>
     <string name="true_backup_notif_restore_complete_text">TrueBackup finished the restore.</string>
+    <string name="true_backup_notif_preparing">Preparing…</string>
+    <string name="true_backup_notif_more_in_queue">%1$d more in queue</string>
+    <string name="true_backup_notif_all_ops_complete_title">TrueBackup</string>
+    <string name="true_backup_notif_all_ops_complete_text">All scheduled operations finished.</string>
 
     <string name="true_backup_restore_backup_details_title">Backup details</string>
     <string name="true_backup_backup_json_section">Backup metadata</string>
