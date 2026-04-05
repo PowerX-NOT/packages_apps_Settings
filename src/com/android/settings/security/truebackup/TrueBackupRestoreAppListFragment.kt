@@ -43,12 +43,14 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
     private var selectedPackage: String? = null
     private val pollHandler = Handler(Looper.getMainLooper())
     private var operationInProgress = false
+    private var awaitingRestoreCompleteNotification = false
 
     private val pollRunnable = object : Runnable {
         override fun run() {
             val svc = TrueBackupBinder.get()
             if (svc == null) {
                 operationInProgress = false
+                awaitingRestoreCompleteNotification = false
                 activity?.invalidateOptionsMenu()
                 return
             }
@@ -58,10 +60,17 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
                 } else {
                     operationInProgress = false
                     activity?.invalidateOptionsMenu()
+                    if (awaitingRestoreCompleteNotification) {
+                        awaitingRestoreCompleteNotification = false
+                        this@TrueBackupRestoreAppListFragment.context?.applicationContext?.let {
+                            TrueBackupNotifications.notifyRestoreCompleted(it)
+                        }
+                    }
                 }
             } catch (e: RemoteException) {
                 Log.e(LOG_TAG, "poll", e)
                 operationInProgress = false
+                awaitingRestoreCompleteNotification = false
                 activity?.invalidateOptionsMenu()
             }
         }
@@ -173,8 +182,11 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
                 Log.e(LOG_TAG, "restore $pkg", e)
             }
             if (started) {
+                awaitingRestoreCompleteNotification = true
                 operationInProgress = true
                 withContext(Dispatchers.Main) {
+                    val appCtx = requireContext().applicationContext
+                    TrueBackupNotifications.notifyRestoreStarted(appCtx)
                     Toast.makeText(
                         requireContext(),
                         R.string.true_backup_status_restore_progress,
