@@ -8,8 +8,6 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.os.RemoteException
 import android.util.Log
 import android.view.Menu
@@ -46,40 +44,6 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
     private var selectedPackage: String? = null
     /** Skip one [onResume] after [onCreatePreferences] to avoid double [populateRestoreList]. */
     private var skipNextResumeRefresh = true
-    private val pollHandler = Handler(Looper.getMainLooper())
-    private var operationInProgress = false
-    private var awaitingRestoreCompleteNotification = false
-
-    private val pollRunnable = object : Runnable {
-        override fun run() {
-            val svc = TrueBackupBinder.get()
-            if (svc == null) {
-                operationInProgress = false
-                awaitingRestoreCompleteNotification = false
-                activity?.invalidateOptionsMenu()
-                return
-            }
-            try {
-                if (svc.isOperationInProgress) {
-                    pollHandler.postDelayed(this, 1000)
-                } else {
-                    operationInProgress = false
-                    activity?.invalidateOptionsMenu()
-                    if (awaitingRestoreCompleteNotification) {
-                        awaitingRestoreCompleteNotification = false
-                        this@TrueBackupRestoreAppListFragment.context?.applicationContext?.let {
-                            TrueBackupNotifications.notifyRestoreCompleted(it)
-                        }
-                    }
-                }
-            } catch (e: RemoteException) {
-                Log.e(LOG_TAG, "poll", e)
-                operationInProgress = false
-                awaitingRestoreCompleteNotification = false
-                activity?.invalidateOptionsMenu()
-            }
-        }
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -159,22 +123,20 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
         }
     }
 
-    override fun onDestroy() {
-        pollHandler.removeCallbacks(pollRunnable)
-        super.onDestroy()
+    private fun schedulePollIfNeeded() {
+        TrueBackupOperationPoller.resumeWatchingIfOperationInProgress(
+            requireContext(),
+            TrueBackupOperationPoller.Kind.RESTORE,
+        )
+        activity?.invalidateOptionsMenu()
     }
 
-    private fun schedulePollIfNeeded() {
-        val svc = TrueBackupBinder.get() ?: return
-        try {
-            if (svc.isOperationInProgress) {
-                operationInProgress = true
-                pollHandler.removeCallbacks(pollRunnable)
-                pollHandler.post(pollRunnable)
-            }
+    private fun isTrueBackupOperationInProgress(): Boolean {
+        return try {
+            TrueBackupBinder.get()?.isOperationInProgress == true
         } catch (_: RemoteException) {
+            false
         }
-        activity?.invalidateOptionsMenu()
     }
 
     override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
@@ -185,7 +147,7 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
     override fun onPrepareOptionsMenu(menu: Menu) {
         super.onPrepareOptionsMenu(menu)
         menu.findItem(R.id.true_backup_restore_start)?.isEnabled =
-            !operationInProgress && TrueBackupBinder.get() != null
+            !isTrueBackupOperationInProgress() && TrueBackupBinder.get() != null
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -221,18 +183,15 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
                 Log.e(LOG_TAG, "restore $pkg", e)
             }
             if (started) {
-                awaitingRestoreCompleteNotification = true
-                operationInProgress = true
                 withContext(Dispatchers.Main) {
                     val appCtx = requireContext().applicationContext
                     TrueBackupNotifications.notifyRestoreStarted(appCtx)
+                    TrueBackupOperationPoller.startWatchingForRestoreCompletion(appCtx)
                     Toast.makeText(
                         requireContext(),
                         R.string.true_backup_status_restore_progress,
                         Toast.LENGTH_SHORT,
                     ).show()
-                    pollHandler.removeCallbacks(pollRunnable)
-                    pollHandler.postDelayed(pollRunnable, 1000)
                     activity?.invalidateOptionsMenu()
                 }
             }
