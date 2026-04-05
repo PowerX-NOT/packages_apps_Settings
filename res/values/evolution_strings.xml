@@ -216,6 +216,17 @@
     <string name="true_backup_toast_no_backups_in_dir">No backups found in: %1$s</string>
     <string name="true_backup_toast_no_backed_up_apps">No backed-up apps found</string>
 
+    <string name="true_backup_notif_channel_name">TrueBackup</string>
+    <string name="true_backup_notif_channel_desc">Backup and restore progress</string>
+    <string name="true_backup_notif_backup_started_title">Backing up</string>
+    <string name="true_backup_notif_backup_started_text">TrueBackup</string>
+    <string name="true_backup_notif_backup_complete_title">Backup finished</string>
+    <string name="true_backup_notif_backup_complete_text">TrueBackup finished the backup.</string>
+    <string name="true_backup_notif_restore_started_title">Restoring</string>
+    <string name="true_backup_notif_restore_started_text">TrueBackup</string>
+    <string name="true_backup_notif_restore_complete_title">Restore finished</string>
+    <string name="true_backup_notif_restore_complete_text">TrueBackup finished the restore.</string>
+
     <!-- Doze on charge -->
     <string name="doze_on_charge_title">Always show when charging</string>
     <string name="doze_on_charge_summary">Display info when device is charging</string>

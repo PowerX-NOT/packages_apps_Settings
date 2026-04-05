@@ -45,12 +45,14 @@ class TrueBackupBackupAppListFragment : DashboardFragment() {
     private var selectedPackage: String? = null
     private val pollHandler = Handler(Looper.getMainLooper())
     private var operationInProgress = false
+    private var awaitingBackupCompleteNotification = false
 
     private val pollRunnable = object : Runnable {
         override fun run() {
             val svc = TrueBackupBinder.get()
             if (svc == null) {
                 operationInProgress = false
+                awaitingBackupCompleteNotification = false
                 activity?.invalidateOptionsMenu()
                 return
             }
@@ -60,10 +62,17 @@ class TrueBackupBackupAppListFragment : DashboardFragment() {
                 } else {
                     operationInProgress = false
                     activity?.invalidateOptionsMenu()
+                    if (awaitingBackupCompleteNotification) {
+                        awaitingBackupCompleteNotification = false
+                        this@TrueBackupBackupAppListFragment.context?.applicationContext?.let {
+                            TrueBackupNotifications.notifyBackupCompleted(it)
+                        }
+                    }
                 }
             } catch (e: RemoteException) {
                 Log.e(LOG_TAG, "poll", e)
                 operationInProgress = false
+                awaitingBackupCompleteNotification = false
                 activity?.invalidateOptionsMenu()
             }
         }
@@ -168,8 +177,11 @@ class TrueBackupBackupAppListFragment : DashboardFragment() {
                 Log.e(LOG_TAG, "backup $pkg", e)
             }
             if (started) {
+                awaitingBackupCompleteNotification = true
                 operationInProgress = true
                 withContext(Dispatchers.Main) {
+                    val appCtx = requireContext().applicationContext
+                    TrueBackupNotifications.notifyBackupStarted(appCtx)
                     Toast.makeText(
                         requireContext(),
                         R.string.true_backup_status_backup_progress,
