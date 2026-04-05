@@ -22,8 +22,7 @@ import com.android.settings.R
 import com.android.settings.applications.appinfo.AppInfoDashboardFragment
 import androidx.lifecycle.lifecycleScope
 import com.android.settings.dashboard.DashboardFragment
-import com.android.settingslib.PrimarySwitchPreference
-import com.android.settingslib.widget.TwoTargetPreference.ICON_SIZE_MEDIUM
+import com.android.settingslib.widget.SelectorWithWidgetPreference
 import java.io.File
 import java.nio.charset.StandardCharsets
 import kotlinx.coroutines.Dispatchers
@@ -43,7 +42,7 @@ private data class BackupRow(
 
 class TrueBackupBackupAppListFragment : DashboardFragment() {
 
-    private val selectedPackages = mutableSetOf<String>()
+    private var selectedPackage: String? = null
     private val pollHandler = Handler(Looper.getMainLooper())
     private var operationInProgress = false
 
@@ -144,28 +143,29 @@ class TrueBackupBackupAppListFragment : DashboardFragment() {
             Toast.makeText(requireContext(), R.string.true_backup_toast_no_path, Toast.LENGTH_LONG).show()
             return
         }
-        val pm = requireContext().packageManager
-        val targets = selectedPackages.filter { pkg ->
-            try {
-                val info = pm.getApplicationInfo(pkg, 0)
-                (info.flags and ApplicationInfo.FLAG_SYSTEM) == 0
-            } catch (_: PackageManager.NameNotFoundException) {
-                false
-            }
+        val pkg = selectedPackage
+        if (pkg == null) {
+            Toast.makeText(requireContext(), R.string.true_backup_toast_no_apps_selected, Toast.LENGTH_SHORT).show()
+            return
         }
-        if (targets.isEmpty()) {
+        val pm = requireContext().packageManager
+        try {
+            val info = pm.getApplicationInfo(pkg, 0)
+            if ((info.flags and ApplicationInfo.FLAG_SYSTEM) != 0) {
+                Toast.makeText(requireContext(), R.string.true_backup_toast_no_apps_selected, Toast.LENGTH_SHORT).show()
+                return
+            }
+        } catch (_: PackageManager.NameNotFoundException) {
             Toast.makeText(requireContext(), R.string.true_backup_toast_no_apps_selected, Toast.LENGTH_SHORT).show()
             return
         }
         lifecycleScope.launch(Dispatchers.IO) {
             var started = false
-            for (pkg in targets) {
-                try {
-                    svc.backupPackage(pkg, path)
-                    started = true
-                } catch (e: RemoteException) {
-                    Log.e(LOG_TAG, "backup $pkg", e)
-                }
+            try {
+                svc.backupPackage(pkg, path)
+                started = true
+            } catch (e: RemoteException) {
+                Log.e(LOG_TAG, "backup $pkg", e)
             }
             if (started) {
                 operationInProgress = true
@@ -254,41 +254,50 @@ class TrueBackupBackupAppListFragment : DashboardFragment() {
         }
     }
 
-    private fun createPreference(row: BackupRow): PrimarySwitchPreference {
-        return PrimarySwitchPreference(requireContext()).apply {
+    private fun clearAllRadioChecksExcept(keep: SelectorWithWidgetPreference) {
+        val screen = preferenceScreen ?: return
+        for (i in 0 until screen.preferenceCount) {
+            val p = screen.getPreference(i)
+            if (p is SelectorWithWidgetPreference && p !== keep) {
+                p.isChecked = false
+            }
+        }
+    }
+
+    private fun createPreference(row: BackupRow): SelectorWithWidgetPreference {
+        return SelectorWithWidgetPreference(requireContext(), false).apply {
             key = row.packageName
             title = row.label
             summary = row.packageName
             icon = row.icon
-            setIconSize(ICON_SIZE_MEDIUM)
-            isEnabled = row.installed || row.hasBackup
-            isChecked = selectedPackages.contains(row.packageName)
-            setOnPreferenceChangeListener { _, newValue ->
-                if (newValue as Boolean) {
-                    selectedPackages.add(row.packageName)
-                } else {
-                    selectedPackages.remove(row.packageName)
-                }
-                true
+            isPersistent = false
+            isEnabled = row.installed
+            isChecked = selectedPackage == row.packageName
+            setOnClickListener { emitter ->
+                val key = emitter.key ?: return@setOnClickListener
+                selectedPackage = key
+                clearAllRadioChecksExcept(emitter)
+                emitter.isChecked = true
             }
-            setOnPreferenceClickListener {
-                if (!row.installed) {
-                    return@setOnPreferenceClickListener true
+            if (row.installed) {
+                setExtraWidgetContentDescription(
+                    context.getString(R.string.application_info_label),
+                )
+                setExtraWidgetOnClickListener {
+                    try {
+                        val appInfo = requireContext().packageManager.getApplicationInfo(
+                            row.packageName,
+                            PackageManager.GET_META_DATA,
+                        )
+                        AppInfoDashboardFragment.startAppInfoFragment(
+                            AppInfoDashboardFragment::class.java,
+                            appInfo,
+                            requireContext(),
+                            metricsCategory,
+                        )
+                    } catch (_: PackageManager.NameNotFoundException) {
+                    }
                 }
-                try {
-                    val appInfo = requireContext().packageManager.getApplicationInfo(
-                        row.packageName,
-                        PackageManager.GET_META_DATA,
-                    )
-                    AppInfoDashboardFragment.startAppInfoFragment(
-                        AppInfoDashboardFragment::class.java,
-                        appInfo,
-                        requireContext(),
-                        metricsCategory,
-                    )
-                } catch (_: PackageManager.NameNotFoundException) {
-                }
-                true
             }
         }
     }
