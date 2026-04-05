@@ -215,6 +215,9 @@
     <string name="true_backup_toast_invalid_backup_path">Invalid backup path: %1$s</string>
     <string name="true_backup_toast_no_backups_in_dir">No backups found in: %1$s</string>
     <string name="true_backup_toast_no_backed_up_apps">No backed-up apps found</string>
+    <string name="true_backup_toast_backup_folder_missing">Could not load backup metadata. Check the backup location or try again.</string>
+    <string name="true_backup_backup_folder_service_only">Resolved by the system backup service</string>
+    <string name="true_backup_delete_unavailable_summary">Backup folder path is unavailable; metadata was loaded from the system service only.</string>
 
     <string name="true_backup_notif_channel_name">TrueBackup</string>
     <string name="true_backup_notif_channel_desc">Backup and restore progress</string>
@@ -226,6 +229,36 @@
     <string name="true_backup_notif_restore_started_text">TrueBackup</string>
     <string name="true_backup_notif_restore_complete_title">Restore finished</string>
     <string name="true_backup_notif_restore_complete_text">TrueBackup finished the restore.</string>
+
+    <string name="true_backup_restore_backup_details_title">Backup details</string>
+    <string name="true_backup_backup_json_section">Backup metadata</string>
+    <string name="true_backup_category_backup_parts">Backup parts</string>
+    <string name="true_backup_part_apk">APK</string>
+    <string name="true_backup_part_user_ce">User CE</string>
+    <string name="true_backup_part_user_de">User DE</string>
+    <string name="true_backup_part_ext_data">Data (external)</string>
+    <string name="true_backup_part_obb">OBB</string>
+    <string name="true_backup_part_media">Media</string>
+    <string name="true_backup_category_info">Info</string>
+    <string name="true_backup_info_uid">UID</string>
+    <string name="true_backup_info_version">Version</string>
+    <string name="true_backup_info_first_installed">First installed</string>
+    <string name="true_backup_info_last_update">Last update</string>
+    <string name="true_backup_info_last_backup">Last backup</string>
+    <string name="true_backup_category_permissions">Permissions</string>
+    <string name="true_backup_permission_granted">Granted</string>
+    <string name="true_backup_permission_denied">Not granted</string>
+    <string name="true_backup_permissions_empty">No permission entries in this backup</string>
+    <string name="true_backup_value_unknown">—</string>
+    <string name="true_backup_backup_raw_json">Raw JSON</string>
+    <string name="true_backup_backup_storage">Storage</string>
+    <string name="true_backup_backup_folder_label">Backup folder</string>
+    <string name="true_backup_open_app_info">Open app info</string>
+    <string name="true_backup_delete_backup">Delete backup</string>
+    <string name="true_backup_delete_backup_summary">Remove this app’s backup files from storage</string>
+    <string name="true_backup_delete_confirm_title">Delete backup?</string>
+    <string name="true_backup_delete_confirm_message">Remove the backup for %1$s? This cannot be undone.</string>
+    <string name="true_backup_delete_failed">Could not delete backup</string>
 
     <!-- Doze on charge -->
     <string name="doze_on_charge_title">Always show when charging</string>
