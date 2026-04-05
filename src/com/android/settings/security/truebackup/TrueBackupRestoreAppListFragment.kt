@@ -44,6 +44,8 @@ private data class RestoreRow(
 class TrueBackupRestoreAppListFragment : DashboardFragment() {
 
     private var selectedPackage: String? = null
+    /** Skip one [onResume] after [onCreatePreferences] to avoid double [populateRestoreList]. */
+    private var skipNextResumeRefresh = true
     private val pollHandler = Handler(Looper.getMainLooper())
     private var operationInProgress = false
     private var awaitingRestoreCompleteNotification = false
@@ -81,6 +83,8 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Details opens in SubSettings (separate activity), so fragment results never reach here;
+        // we refresh the list in onResume when returning from that activity.
         parentFragmentManager.setFragmentResultListener(
             TrueBackupRestoreBackupDetailsFragment.FRAGMENT_RESULT_KEY,
             this,
@@ -99,6 +103,7 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         super.onCreatePreferences(savedInstanceState, rootKey)
+        skipNextResumeRefresh = true
         selectedPackage = TrueBackupPreferences.getSelectedPackage(requireContext())
         if (TrueBackupPreferences.getBackupPath(requireContext()) == null) {
             Toast.makeText(requireContext(), R.string.true_backup_toast_no_path, Toast.LENGTH_LONG).show()
@@ -113,6 +118,11 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
             val ctx = requireContext()
             val path = TrueBackupPreferences.getBackupPath(ctx)
             val rows = withContext(Dispatchers.Default) { computeRows(ctx) }
+            val sel = selectedPackage
+            if (sel != null && rows.none { it.packageName == sel }) {
+                selectedPackage = null
+                TrueBackupPreferences.setSelectedPackage(ctx, null)
+            }
             preferenceScreen?.let { screen ->
                 screen.removeAllPreferences()
                 for (row in rows) {
@@ -140,6 +150,13 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
     override fun onResume() {
         super.onResume()
         schedulePollIfNeeded()
+        if (skipNextResumeRefresh) {
+            skipNextResumeRefresh = false
+            return
+        }
+        if (TrueBackupPreferences.getBackupPath(requireContext()) != null) {
+            populateRestoreList()
+        }
     }
 
     override fun onDestroy() {
