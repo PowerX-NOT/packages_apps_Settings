@@ -65,6 +65,12 @@
         <com.android.settingslib.RestrictedPreference
             android:key="app_lock"
             android:title="@string/app_lock_title" />
+
+        <Preference
+            android:key="true_backup"
+            android:title="@string/true_backup_title"
+            android:summary="@string/true_backup_summary"
+            android:fragment="com.android.settings.security.truebackup.TrueBackupSettingsFragment" />
     </PreferenceCategory>
 
     <Preference
