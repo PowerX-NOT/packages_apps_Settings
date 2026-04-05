@@ -10,6 +10,7 @@ import android.net.Uri
 object TrueBackupPreferences {
     const val PREF_NAME = "TrueBackupPrefs"
     const val KEY_BACKUP_PATH = "backup_path"
+    const val KEY_SELECTED_PACKAGE = "selected_package"
 
     @JvmStatic
     fun getBackupPath(context: Context): String? {
@@ -35,6 +36,26 @@ object TrueBackupPreferences {
             "/data/media/0/" + path.substring(idx + 1)
         } else {
             path
+        }
+    }
+
+    /** Single app selected for both backup and restore list screens. */
+    @JvmStatic
+    fun getSelectedPackage(context: Context): String? {
+        val p = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_SELECTED_PACKAGE, null)
+        return if (p.isNullOrBlank()) null else p
+    }
+
+    @JvmStatic
+    fun setSelectedPackage(context: Context, packageName: String?) {
+        context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE).edit().apply {
+            if (packageName.isNullOrBlank()) {
+                remove(KEY_SELECTED_PACKAGE)
+            } else {
+                putString(KEY_SELECTED_PACKAGE, packageName)
+            }
+            apply()
         }
     }
 }

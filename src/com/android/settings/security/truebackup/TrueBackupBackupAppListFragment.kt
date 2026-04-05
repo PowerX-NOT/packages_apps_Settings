@@ -85,6 +85,7 @@ class TrueBackupBackupAppListFragment : DashboardFragment() {
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         super.onCreatePreferences(savedInstanceState, rootKey)
+        selectedPackage = TrueBackupPreferences.getSelectedPackage(requireContext())
         lifecycleScope.launch {
             val ctx = requireContext()
             val rows = withContext(Dispatchers.Default) {
@@ -270,14 +271,14 @@ class TrueBackupBackupAppListFragment : DashboardFragment() {
         val screen = preferenceScreen ?: return
         for (i in 0 until screen.preferenceCount) {
             val p = screen.getPreference(i)
-            if (p is SelectorWithWidgetPreference && p !== keep) {
+            if (p is TrueBackupAppSelectorPreference && p !== keep) {
                 p.isChecked = false
             }
         }
     }
 
-    private fun createPreference(row: BackupRow): SelectorWithWidgetPreference {
-        return SelectorWithWidgetPreference(requireContext(), false).apply {
+    private fun createPreference(row: BackupRow): TrueBackupAppSelectorPreference {
+        return TrueBackupAppSelectorPreference(requireContext()).apply {
             key = row.packageName
             title = row.label
             summary = row.packageName
@@ -288,14 +289,12 @@ class TrueBackupBackupAppListFragment : DashboardFragment() {
             setOnClickListener { emitter ->
                 val key = emitter.key ?: return@setOnClickListener
                 selectedPackage = key
+                TrueBackupPreferences.setSelectedPackage(requireContext(), key)
                 clearAllRadioChecksExcept(emitter)
                 emitter.isChecked = true
             }
             if (row.installed) {
-                setExtraWidgetContentDescription(
-                    context.getString(R.string.application_info_label),
-                )
-                setExtraWidgetOnClickListener {
+                onContentClick = {
                     try {
                         val appInfo = requireContext().packageManager.getApplicationInfo(
                             row.packageName,
@@ -310,6 +309,8 @@ class TrueBackupBackupAppListFragment : DashboardFragment() {
                     } catch (_: PackageManager.NameNotFoundException) {
                     }
                 }
+            } else {
+                onContentClick = null
             }
         }
     }
