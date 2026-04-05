@@ -201,6 +201,9 @@ import com.android.settings.security.ContentProtectionPreferenceFragment;
 import com.android.settings.security.LockscreenDashboardFragment;
 import com.android.settings.security.MemtagPage;
 import com.android.settings.security.SecurityAdvancedSettings;
+import com.android.settings.security.truebackup.TrueBackupBackupAppListFragment;
+import com.android.settings.security.truebackup.TrueBackupRestoreAppListFragment;
+import com.android.settings.security.truebackup.TrueBackupSettingsFragment;
 import com.android.settings.security.SecuritySettings;
 import com.android.settings.shortcut.CreateShortcut;
 import com.android.settings.sound.MediaControlsSettings;
@@ -444,6 +447,9 @@ public class SettingsGateway {
             SmartPixels.class.getName(),
             RunningServices.class.getName(),
             ScreenRefreshRateFragment.class.getName(),
+            TrueBackupSettingsFragment.class.getName(),
+            TrueBackupBackupAppListFragment.class.getName(),
+            TrueBackupRestoreAppListFragment.class.getName(),
     };
 
     public static final String[] SETTINGS_FOR_RESTRICTED = {
