@@ -40,7 +40,8 @@ private data class RestoreRow(
 
 class TrueBackupRestoreAppListFragment : DashboardFragment() {
 
-    private lateinit var selectedPackages: MutableSet<String>
+    /** In-memory only; cleared when leaving this screen (new fragment instance). */
+    private val selectedPackages = mutableSetOf<String>()
     /** Skip one [onResume] after [onCreatePreferences] to avoid double [populateRestoreList]. */
     private var skipNextResumeRefresh = true
 
@@ -56,7 +57,6 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
                 val deletedPkg = bundle.getString(TrueBackupRestoreBackupDetailsFragment.EXTRA_PACKAGE_NAME)
                 if (deletedPkg != null) {
                     selectedPackages.remove(deletedPkg)
-                    TrueBackupPreferences.setSelectedPackages(requireContext(), selectedPackages)
                 }
                 populateRestoreList()
             }
@@ -67,7 +67,6 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         super.onCreatePreferences(savedInstanceState, rootKey)
         skipNextResumeRefresh = true
-        selectedPackages = TrueBackupPreferences.getSelectedPackages(requireContext())
         if (TrueBackupPreferences.getBackupPath(requireContext()) == null) {
             Toast.makeText(requireContext(), R.string.true_backup_toast_no_path, Toast.LENGTH_LONG).show()
             return
@@ -81,11 +80,7 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
             val ctx = requireContext()
             val path = TrueBackupPreferences.getBackupPath(ctx)
             val rows = withContext(Dispatchers.Default) { computeRows(ctx) }
-            val beforeSize = selectedPackages.size
             selectedPackages.retainAll { pkg -> rows.any { it.packageName == pkg } }
-            if (beforeSize != selectedPackages.size) {
-                TrueBackupPreferences.setSelectedPackages(ctx, selectedPackages)
-            }
             preferenceScreen?.let { screen ->
                 screen.removeAllPreferences()
                 for (row in rows) {
@@ -336,7 +331,6 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
                 } else {
                     selectedPackages.remove(key)
                 }
-                TrueBackupPreferences.setSelectedPackages(requireContext(), selectedPackages)
             }
             onContentClick = {
                 SubSettingLauncher(requireContext())
