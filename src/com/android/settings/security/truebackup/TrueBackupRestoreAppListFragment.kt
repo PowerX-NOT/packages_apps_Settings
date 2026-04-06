@@ -16,6 +16,7 @@ import android.view.MenuItem
 import android.widget.Toast
 import com.android.internal.logging.nano.MetricsProto
 import com.android.settings.R
+import androidx.appcompat.app.AlertDialog
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.PreferenceScreen
 import com.android.settings.core.SubSettingLauncher
@@ -107,6 +108,12 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
 
     override fun onResume() {
         super.onResume()
+        TrueBackupOperationPoller.setOnAllOperationsIdleListener {
+            if (isAdded) {
+                populateRestoreList()
+                activity?.invalidateOptionsMenu()
+            }
+        }
         schedulePollIfNeeded()
         if (skipNextResumeRefresh) {
             skipNextResumeRefresh = false
@@ -115,6 +122,11 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
         if (TrueBackupPreferences.getBackupPath(requireContext()) != null) {
             populateRestoreList()
         }
+    }
+
+    override fun onPause() {
+        TrueBackupOperationPoller.setOnAllOperationsIdleListener(null)
+        super.onPause()
     }
 
     private fun schedulePollIfNeeded() {
@@ -129,15 +141,102 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
 
     override fun onPrepareOptionsMenu(menu: Menu) {
         super.onPrepareOptionsMenu(menu)
+        val pathOk = TrueBackupPreferences.getBackupPath(requireContext()) != null
         menu.findItem(R.id.true_backup_restore_start)?.isEnabled = TrueBackupBinder.get() != null
+        menu.findItem(R.id.true_backup_restore_delete_selected)?.isEnabled =
+            pathOk && selectedPackages.isNotEmpty()
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        if (item.itemId == R.id.true_backup_restore_start) {
-            startRestoreForSelection()
-            return true
+        when (item.itemId) {
+            R.id.true_backup_restore_start -> {
+                startRestoreForSelection()
+                return true
+            }
+            R.id.true_backup_restore_delete_selected -> {
+                confirmDeleteSelectedBackups()
+                return true
+            }
         }
         return super.onOptionsItemSelected(item)
+    }
+
+    private fun confirmDeleteSelectedBackups() {
+        val svc = TrueBackupBinder.get()
+        if (svc == null) {
+            Toast.makeText(requireContext(), R.string.true_backup_toast_service_missing, Toast.LENGTH_LONG).show()
+            return
+        }
+        val path = TrueBackupPreferences.getBackupPath(requireContext())
+        if (path == null) {
+            Toast.makeText(requireContext(), R.string.true_backup_toast_no_path, Toast.LENGTH_LONG).show()
+            return
+        }
+        if (selectedPackages.isEmpty()) {
+            Toast.makeText(requireContext(), R.string.true_backup_toast_no_apps_selected, Toast.LENGTH_SHORT).show()
+            return
+        }
+        val total = selectedPackages.size
+        val packagesSnapshot = selectedPackages.toList()
+        val screen = preferenceScreen
+        val labelsByPkg = packagesSnapshot.associateWith { pkg ->
+            screen?.findPreference<androidx.preference.Preference>(pkg)?.title?.toString() ?: pkg
+        }
+        val appCtx = requireContext().applicationContext
+        AlertDialog.Builder(requireContext())
+            .setTitle(R.string.true_backup_delete_multi_confirm_title)
+            .setMessage(getString(R.string.true_backup_delete_multi_confirm_message, total))
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.delete) { _, _ ->
+                lifecycleScope.launch(Dispatchers.IO) {
+                    val queuedPkgs = mutableListOf<String>()
+                    for (pkg in packagesSnapshot) {
+                        try {
+                            svc.enqueueDeleteBackupPackage(path, pkg)
+                            queuedPkgs.add(pkg)
+                            val label = labelsByPkg[pkg] ?: pkg
+                            withContext(Dispatchers.Main) {
+                                TrueBackupOperationPoller.onUserQueuedOperation(
+                                    appCtx,
+                                    TrueBackupOperationPoller.KIND_DELETE,
+                                    pkg,
+                                    label,
+                                )
+                            }
+                        } catch (e: RemoteException) {
+                            Log.e(LOG_TAG, "enqueueDelete $pkg", e)
+                        }
+                    }
+                    withContext(Dispatchers.Main) {
+                        queuedPkgs.forEach { selectedPackages.remove(it) }
+                        when {
+                            queuedPkgs.size == packagesSnapshot.size -> {
+                                Toast.makeText(
+                                    requireContext(),
+                                    R.string.true_backup_delete_queued,
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            }
+                            queuedPkgs.isNotEmpty() -> {
+                                Toast.makeText(
+                                    requireContext(),
+                                    R.string.true_backup_delete_queue_failed,
+                                    Toast.LENGTH_LONG,
+                                ).show()
+                            }
+                            else -> {
+                                Toast.makeText(
+                                    requireContext(),
+                                    R.string.true_backup_delete_failed,
+                                    Toast.LENGTH_LONG,
+                                ).show()
+                            }
+                        }
+                        activity?.invalidateOptionsMenu()
+                    }
+                }
+            }
+            .show()
     }
 
     private fun startRestoreForSelection() {
@@ -169,7 +268,12 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
                     startedAny = true
                     val label = labelsByPkg[pkg] ?: pkg
                     withContext(Dispatchers.Main) {
-                        TrueBackupOperationPoller.onUserQueuedOperation(appCtx, true, pkg, label)
+                        TrueBackupOperationPoller.onUserQueuedOperation(
+                            appCtx,
+                            TrueBackupOperationPoller.KIND_RESTORE,
+                            pkg,
+                            label,
+                        )
                     }
                 } catch (e: RemoteException) {
                     Log.e(LOG_TAG, "restore $pkg", e)
@@ -331,6 +435,7 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
                 } else {
                     selectedPackages.remove(key)
                 }
+                activity?.invalidateOptionsMenu()
             }
             onContentClick = {
                 SubSettingLauncher(requireContext())

@@ -405,7 +405,8 @@ class TrueBackupRestoreBackupDetailsFragment : DashboardFragment() {
         val canDelete = basePath.isNotEmpty() && packageName.isNotEmpty() &&
             (
                 TrueBackupBinder.get() != null ||
-                    (backupDir != null && mayDeleteBackup(appsRoot, basePath, backupDir, root))
+                    (backupDir != null &&
+                        TrueBackupBackupDeletion.mayDeleteBackup(appsRoot, basePath, backupDir, root))
                 )
         if (canDelete) {
             val deletePref = Preference(ctx).apply {
@@ -445,40 +446,7 @@ class TrueBackupRestoreBackupDetailsFragment : DashboardFragment() {
             .setPositiveButton(R.string.delete) { _, _ ->
                 lifecycleScope.launch {
                     val ok = withContext(Dispatchers.IO) {
-                        val svc = TrueBackupBinder.get()
-                        if (svc != null) {
-                            try {
-                                if (svc.deleteBackupPackage(basePath, packageName)) {
-                                    return@withContext true
-                                }
-                            } catch (e: RemoteException) {
-                                Log.e(LOG_TAG, "deleteBackupPackage", e)
-                            }
-                            val sp = root.optJSONObject("backupConfig")
-                                ?.optString("storagePath", null)
-                                ?.trim()
-                                ?.takeIf { it.isNotEmpty() }
-                            if (sp != null) {
-                                try {
-                                    if (svc.deleteBackupPackageAtPath(basePath, sp)) {
-                                        return@withContext true
-                                    }
-                                } catch (e: RemoteException) {
-                                    Log.e(LOG_TAG, "deleteBackupPackageAtPath", e)
-                                }
-                            }
-                        }
-                        val dir = backupDir
-                        if (dir != null && mayDeleteBackup(appsRoot, basePath, dir, root)) {
-                            try {
-                                if (dir.deleteRecursively()) {
-                                    return@withContext true
-                                }
-                            } catch (e: Exception) {
-                                Log.e(LOG_TAG, "deleteRecursively", e)
-                            }
-                        }
-                        false
+                        TrueBackupBackupDeletion.deleteBackupForPackage(basePath, packageName)
                     }
                     if (ok) {
                         parentFragmentManager.setFragmentResult(
@@ -569,31 +537,6 @@ private fun formatEpochMillis(ctx: Context, ms: Long): String {
         ms,
         DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_TIME or DateUtils.FORMAT_ABBREV_ALL,
     )
-}
-
-/** Delete allowed if under apps root, backup base path, or canonical path matches [backupConfig.storagePath]. */
-private fun mayDeleteBackup(
-    appsRoot: File?,
-    basePath: String,
-    backupDir: File,
-    root: JSONObject?,
-): Boolean {
-    if (appsRoot != null && TrueBackupPaths.isBackupPackageDirUnderAppsRoot(appsRoot, backupDir)) {
-        return true
-    }
-    if (TrueBackupPaths.isUnderBackupBasePath(basePath, backupDir)) {
-        return true
-    }
-    val sp = root?.optJSONObject("backupConfig")
-        ?.optString("storagePath", null)
-        ?.trim()
-        ?.takeIf { it.isNotEmpty() }
-        ?: return false
-    return try {
-        backupDir.canonicalFile == File(sp).canonicalFile
-    } catch (_: Exception) {
-        false
-    }
 }
 
 private fun PreferenceScreen.removeAllPreferences() {

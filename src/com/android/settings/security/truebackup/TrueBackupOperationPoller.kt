@@ -21,9 +21,14 @@ private const val LOG_TAG = "TrueBackupOpPoller"
  */
 object TrueBackupOperationPoller {
 
+    const val KIND_BACKUP = "backup"
+    const val KIND_RESTORE = "restore"
+    const val KIND_DELETE = "delete"
+
     private val handler = Handler(Looper.getMainLooper())
     private var appContext: Context? = null
-    private var optimisticIsRestore: Boolean = false
+    /** Optimistic op kind until the service sets [android.os.ITrueBackupService.getActiveOperationKind]. */
+    private var optimisticKind: String? = null
     private var optimisticPackage: String? = null
     private var optimisticLabel: String? = null
     private var sawWorkThisSession = false
@@ -31,29 +36,35 @@ object TrueBackupOperationPoller {
     @Volatile
     private var pollPosted = false
 
+    private var onAllOperationsIdle: (() -> Unit)? = null
+
     private val pollRunnable = Runnable { pollOnce() }
 
     /**
-     * Call after [android.os.ITrueBackupService.backupPackage] or [restorePackage] returns
-     * successfully. Pass the app label shown in the list for instant notification text.
+     * Optional hook when [android.os.ITrueBackupService.isOperationInProgress] becomes false after
+     * work was observed (e.g. refresh the restore app list after queued deletes).
+     */
+    fun setOnAllOperationsIdleListener(listener: (() -> Unit)?) {
+        onAllOperationsIdle = listener
+    }
+
+    /**
+     * Call after a backup, restore, or delete has been queued successfully.
+     * [operationKind] is [KIND_BACKUP], [KIND_RESTORE], or [KIND_DELETE].
      */
     fun onUserQueuedOperation(
         context: Context,
-        isRestore: Boolean,
+        operationKind: String,
         packageName: String,
         appLabel: String,
     ) {
         appContext = context.applicationContext
-        optimisticIsRestore = isRestore
+        optimisticKind = operationKind
         optimisticPackage = packageName
         optimisticLabel = appLabel
         schedulePoll(0L)
     }
 
-    /**
-     * If work is already in progress (e.g. user returned to the screen) and nothing is polling,
-     * attach to the session so completion still notifies.
-     */
     fun resumeWatchingIfOperationInProgress(context: Context) {
         val svc = TrueBackupBinder.get() ?: return
         try {
@@ -97,6 +108,11 @@ object TrueBackupOperationPoller {
                 stopPoll()
                 if (sawWorkThisSession) {
                     TrueBackupNotifications.notifyAllOperationsFinished(ctx)
+                    try {
+                        onAllOperationsIdle?.invoke()
+                    } catch (e: Exception) {
+                        Log.e(LOG_TAG, "onAllOperationsIdle", e)
+                    }
                 }
                 sawWorkThisSession = false
                 clearOptimistic()
@@ -105,17 +121,22 @@ object TrueBackupOperationPoller {
             }
             sawWorkThisSession = true
             val kind = svc.activeOperationKind
+                ?: optimisticKind
                 ?: if (optimisticPackage != null) {
-                    if (optimisticIsRestore) "restore" else "backup"
+                    KIND_BACKUP
                 } else {
                     null
                 }
+            val optLabelSnapshot = optimisticLabel
             val activePkg = svc.activeOperationPackage
             val pkg = activePkg ?: optimisticPackage
+            if (activePkg != null) {
+                clearOptimistic()
+            }
             val label = if (activePkg != null) {
                 resolveDisplayName(ctx, activePkg, null)
             } else {
-                resolveDisplayName(ctx, pkg, optimisticLabel)
+                resolveDisplayName(ctx, pkg, optLabelSnapshot)
             }
             val queued = svc.queuedOperationCount
             TrueBackupNotifications.updateActiveOperationProgress(
@@ -136,9 +157,9 @@ object TrueBackupOperationPoller {
     }
 
     private fun clearOptimistic() {
+        optimisticKind = null
         optimisticPackage = null
         optimisticLabel = null
-        optimisticIsRestore = false
     }
 
     private fun resolveDisplayName(context: Context, packageName: String?, optimistic: String?): String {

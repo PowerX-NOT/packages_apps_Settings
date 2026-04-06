@@ -5,4 +5,8 @@
         android:id="@+id/true_backup_restore_start"
         android:title="@string/true_backup_action_restore_selected"
         app:showAsAction="ifRoom" />
+    <item
+        android:id="@+id/true_backup_restore_delete_selected"
+        android:title="@string/true_backup_delete_selected_backups"
+        app:showAsAction="never" />
 </menu>
