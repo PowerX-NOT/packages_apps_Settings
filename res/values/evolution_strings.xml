@@ -225,6 +225,7 @@
     <string name="true_backup_notif_backup_started_text">TrueBackup</string>
     <string name="true_backup_notif_backup_complete_title">Backup finished</string>
     <string name="true_backup_notif_backup_complete_text">TrueBackup finished the backup.</string>
+    <string name="true_backup_notif_delete_title">Deleting backup</string>
     <string name="true_backup_notif_restore_started_title">Restoring</string>
     <string name="true_backup_notif_restore_started_text">TrueBackup</string>
     <string name="true_backup_notif_restore_complete_title">Restore finished</string>
@@ -263,6 +264,13 @@
     <string name="true_backup_delete_confirm_title">Delete backup?</string>
     <string name="true_backup_delete_confirm_message">Remove the backup for %1$s? This cannot be undone.</string>
     <string name="true_backup_delete_failed">Could not delete backup</string>
+    <string name="true_backup_delete_selected_backups">Delete selected backups</string>
+    <string name="true_backup_delete_multi_confirm_title">Delete selected backups?</string>
+    <string name="true_backup_delete_multi_confirm_message">Remove backups for %1$d selected app(s)? This cannot be undone.</string>
+    <string name="true_backup_delete_multi_done">Deleted %1$d backup(s)</string>
+    <string name="true_backup_delete_multi_partial">Deleted %1$d of %2$d backup(s); some could not be removed</string>
+    <string name="true_backup_delete_queued">Deleting selected backups…</string>
+    <string name="true_backup_delete_queue_failed">Could not queue some deletes</string>
 
     <!-- Doze on charge -->
     <string name="doze_on_charge_title">Always show when charging</string>

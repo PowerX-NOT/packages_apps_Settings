@@ -120,7 +120,12 @@ class TrueBackupBackupAppListFragment : DashboardFragment() {
                     startedAny = true
                     val label = info.loadLabel(pm).toString()
                     withContext(Dispatchers.Main) {
-                        TrueBackupOperationPoller.onUserQueuedOperation(appCtx, false, pkg, label)
+                        TrueBackupOperationPoller.onUserQueuedOperation(
+                            appCtx,
+                            TrueBackupOperationPoller.KIND_BACKUP,
+                            pkg,
+                            label,
+                        )
                     }
                 } catch (_: PackageManager.NameNotFoundException) {
                     continue

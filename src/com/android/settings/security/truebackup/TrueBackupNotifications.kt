@@ -62,6 +62,7 @@ object TrueBackupNotifications {
         nm.cancel(NOTIF_RESTORE_PROGRESS_LEGACY)
         val title = when (operationKind) {
             "restore" -> context.getString(R.string.true_backup_notif_restore_started_title)
+            "delete" -> context.getString(R.string.true_backup_notif_delete_title)
             else -> context.getString(R.string.true_backup_notif_backup_started_title)
         }
         val mainText = appDisplayName.ifEmpty { packageName ?: "" }.ifEmpty {
