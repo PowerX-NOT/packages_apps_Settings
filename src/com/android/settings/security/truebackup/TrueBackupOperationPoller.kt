@@ -24,6 +24,7 @@ object TrueBackupOperationPoller {
     const val KIND_BACKUP = "backup"
     const val KIND_RESTORE = "restore"
     const val KIND_DELETE = "delete"
+    const val KIND_REKEY = "rekey"
 
     private val handler = Handler(Looper.getMainLooper())
     private var appContext: Context? = null

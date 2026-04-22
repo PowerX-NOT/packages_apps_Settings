@@ -10,6 +10,13 @@
         settings:searchable="false" />
 
     <Preference
+        android:key="true_backup_password"
+        android:title="@string/true_backup_password_title"
+        android:summary="@string/true_backup_password_summary"
+        settings:searchable="false"
+        android:fragment="com.android.settings.security.truebackup.TrueBackupPasswordFragment" />
+
+    <Preference
         android:key="true_backup_backup_apps"
         android:title="@string/true_backup_backup_apps_title"
         android:summary="@string/true_backup_backup_apps_summary"

@@ -81,7 +81,13 @@ class TrueBackupBackupAppListFragment : DashboardFragment() {
 
     override fun onPrepareOptionsMenu(menu: Menu) {
         super.onPrepareOptionsMenu(menu)
-        menu.findItem(R.id.true_backup_start)?.isEnabled = TrueBackupBinder.get() != null
+        val svc = TrueBackupBinder.get()
+        val hasPw = try {
+            svc?.isRegistrationPasswordSet == true
+        } catch (_: RemoteException) {
+            false
+        }
+        menu.findItem(R.id.true_backup_start)?.isEnabled = svc != null && hasPw
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -96,6 +102,15 @@ class TrueBackupBackupAppListFragment : DashboardFragment() {
         val svc = TrueBackupBinder.get()
         if (svc == null) {
             Toast.makeText(requireContext(), R.string.true_backup_toast_service_missing, Toast.LENGTH_LONG).show()
+            return
+        }
+        val hasPw = try {
+            svc.isRegistrationPasswordSet
+        } catch (_: RemoteException) {
+            false
+        }
+        if (!hasPw) {
+            Toast.makeText(requireContext(), R.string.true_backup_password_required, Toast.LENGTH_LONG).show()
             return
         }
         val path = TrueBackupPreferences.getBackupPath(requireContext())
