@@ -202,6 +202,7 @@ import com.android.settings.security.LockscreenDashboardFragment;
 import com.android.settings.security.MemtagPage;
 import com.android.settings.security.SecurityAdvancedSettings;
 import com.android.settings.security.truebackup.TrueBackupBackupAppListFragment;
+import com.android.settings.security.truebackup.TrueBackupPasswordFragment;
 import com.android.settings.security.truebackup.TrueBackupRestoreAppListFragment;
 import com.android.settings.security.truebackup.TrueBackupRestoreBackupDetailsFragment;
 import com.android.settings.security.truebackup.TrueBackupSettingsFragment;
@@ -452,6 +453,7 @@ public class SettingsGateway {
             TrueBackupBackupAppListFragment.class.getName(),
             TrueBackupRestoreAppListFragment.class.getName(),
             TrueBackupRestoreBackupDetailsFragment.class.getName(),
+            TrueBackupPasswordFragment.class.getName(),
     };
 
     public static final String[] SETTINGS_FOR_RESTRICTED = {

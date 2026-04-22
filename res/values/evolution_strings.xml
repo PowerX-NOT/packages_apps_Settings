@@ -204,6 +204,23 @@
     <string name="true_backup_backup_apps_summary">Select one app, then start backup from the menu</string>
     <string name="true_backup_restore_apps_title">Restore apps</string>
     <string name="true_backup_restore_apps_summary">Select one backed-up app to restore</string>
+
+    <string name="true_backup_password_title">Registration password</string>
+    <string name="true_backup_password_summary">Encrypt backups with a TrueBackup password</string>
+    <string name="true_backup_password_set_title">Set password</string>
+    <string name="true_backup_password_set_summary">Create or replace the password used to encrypt backups</string>
+    <string name="true_backup_password_set_summary_not_set">Not set</string>
+    <string name="true_backup_password_set_summary_is_set">Set</string>
+    <string name="true_backup_password_reset_title">Reset password</string>
+    <string name="true_backup_password_reset_summary">Change the password and re-encrypt existing backups</string>
+    <string name="true_backup_password_hint_old">Old password</string>
+    <string name="true_backup_password_hint_new">New password</string>
+    <string name="true_backup_password_hint_confirm">Confirm password</string>
+    <string name="true_backup_password_mismatch">Passwords do not match</string>
+    <string name="true_backup_password_old_incorrect">Old password is incorrect</string>
+    <string name="true_backup_password_saved">Password saved</string>
+    <string name="true_backup_password_save_failed">Could not save password</string>
+    <string name="true_backup_password_required">Set a TrueBackup password before backing up or restoring</string>
     <string name="true_backup_action_backup">Start backup</string>
     <string name="true_backup_action_restore_selected">Restore selected</string>
     <string name="true_backup_status_complete">Done</string>
@@ -226,6 +243,7 @@
     <string name="true_backup_notif_backup_complete_title">Backup finished</string>
     <string name="true_backup_notif_backup_complete_text">TrueBackup finished the backup.</string>
     <string name="true_backup_notif_delete_title">Deleting backup</string>
+    <string name="true_backup_notif_rekey_title">Updating password</string>
     <string name="true_backup_notif_restore_started_title">Restoring</string>
     <string name="true_backup_notif_restore_started_text">TrueBackup</string>
     <string name="true_backup_notif_restore_complete_title">Restore finished</string>
