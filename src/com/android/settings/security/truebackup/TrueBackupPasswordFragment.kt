@@ -32,7 +32,8 @@ class TrueBackupPasswordFragment : DashboardFragment() {
         super.onCreatePreferences(savedInstanceState, rootKey)
         refreshState()
         findPreference<Preference>("true_backup_password_set")?.setOnPreferenceClickListener {
-            showSetPasswordDialog(isReset = false)
+            refreshState()
+            showSetPasswordDialog(isReset = isSet)
             true
         }
         findPreference<Preference>("true_backup_password_reset")?.setOnPreferenceClickListener {
@@ -54,9 +55,17 @@ class TrueBackupPasswordFragment : DashboardFragment() {
             false
         }
         findPreference<Preference>("true_backup_password_reset")?.isEnabled = isSet && svc != null
-        findPreference<Preference>("true_backup_password_set")?.isEnabled = svc != null
-        findPreference<Preference>("true_backup_password_set")?.summary =
-            getString(if (isSet) R.string.true_backup_password_set_summary_is_set else R.string.true_backup_password_set_summary_not_set)
+        findPreference<Preference>("true_backup_password_set")?.apply {
+            isEnabled = svc != null
+            title = getString(
+                if (isSet) R.string.true_backup_password_change_title
+                else R.string.true_backup_password_set_title
+            )
+            summary = getString(
+                if (isSet) R.string.true_backup_password_set_summary_is_set
+                else R.string.true_backup_password_set_summary_not_set
+            )
+        }
     }
 
     private fun showSetPasswordDialog(isReset: Boolean) {
