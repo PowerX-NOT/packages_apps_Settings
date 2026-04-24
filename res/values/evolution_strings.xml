@@ -208,6 +208,7 @@
     <string name="true_backup_password_title">Registration password</string>
     <string name="true_backup_password_summary">Encrypt backups with a TrueBackup password</string>
     <string name="true_backup_password_set_title">Set password</string>
+    <string name="true_backup_password_change_title">Change password</string>
     <string name="true_backup_password_set_summary">Create or replace the password used to encrypt backups</string>
     <string name="true_backup_password_set_summary_not_set">Not set</string>
     <string name="true_backup_password_set_summary_is_set">Set</string>
