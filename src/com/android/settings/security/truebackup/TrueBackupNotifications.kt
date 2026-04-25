@@ -21,6 +21,7 @@ object TrueBackupNotifications {
     private const val NOTIF_RESTORE_PROGRESS_LEGACY = 71003
     private const val NOTIF_RESTORE_DONE = 71004
     private const val NOTIF_ALL_COMPLETE = 71007
+    private const val NOTIF_REKEY_DONE = 71008
 
     fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
@@ -90,6 +91,28 @@ object TrueBackupNotifications {
             .setStyle(Notification.BigTextStyle().bigText(bigText))
             .build()
         nm.notify(NOTIF_ACTIVE_OPERATION, n)
+    }
+
+    /** Posted when queued re-encryption/rekey work completes. */
+    fun notifyRekeyFinished(context: Context) {
+        val nm = context.getSystemService(NotificationManager::class.java) ?: return
+        nm.cancel(NOTIF_ACTIVE_OPERATION)
+        nm.cancel(NOTIF_RESTORE_PROGRESS_LEGACY)
+        nm.notify(
+            NOTIF_REKEY_DONE,
+            newBuilder(context)
+                .setSmallIcon(R.drawable.ic_settings_backup)
+                .setContentTitle(context.getString(R.string.true_backup_notif_rekey_done_title))
+                .setContentText(context.getString(R.string.true_backup_notif_rekey_done_text))
+                .setProgress(0, 0, false)
+                .setAutoCancel(true)
+                .setCategory(Notification.CATEGORY_STATUS)
+                .setStyle(
+                    Notification.BigTextStyle()
+                        .bigText(context.getString(R.string.true_backup_notif_rekey_done_text)),
+                )
+                .build(),
+        )
     }
 
     /** Posted when the work counter returns to zero after at least one operation was observed. */

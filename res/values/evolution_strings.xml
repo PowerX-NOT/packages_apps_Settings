@@ -244,7 +244,9 @@
     <string name="true_backup_notif_backup_complete_title">Backup finished</string>
     <string name="true_backup_notif_backup_complete_text">TrueBackup finished the backup.</string>
     <string name="true_backup_notif_delete_title">Deleting backup</string>
-    <string name="true_backup_notif_rekey_title">Updating password</string>
+    <string name="true_backup_notif_rekey_title">Re-encrypting backups</string>
+    <string name="true_backup_notif_rekey_done_title">Re-encryption finished</string>
+    <string name="true_backup_notif_rekey_done_text">TrueBackup finished re-encrypting existing backups.</string>
     <string name="true_backup_notif_restore_started_title">Restoring</string>
     <string name="true_backup_notif_restore_started_text">TrueBackup</string>
     <string name="true_backup_notif_restore_complete_title">Restore finished</string>
