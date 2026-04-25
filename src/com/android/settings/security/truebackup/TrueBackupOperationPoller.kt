@@ -249,7 +249,7 @@ object TrueBackupOperationPoller {
             val pm = context.packageManager
             pm.getApplicationLabel(pm.getApplicationInfo(packageName, 0)).toString()
         } catch (_: PackageManager.NameNotFoundException) {
-            packageName
+            ""
         }
     }
 }

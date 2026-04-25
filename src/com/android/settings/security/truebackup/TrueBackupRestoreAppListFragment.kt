@@ -186,7 +186,7 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
         val packagesSnapshot = selectedPackages.toList()
         val screen = preferenceScreen
         val labelsByPkg = packagesSnapshot.associateWith { pkg ->
-            screen?.findPreference<androidx.preference.Preference>(pkg)?.title?.toString() ?: pkg
+            screen?.findPreference<androidx.preference.Preference>(pkg)?.title?.toString().orEmpty()
         }
         val appCtx = requireContext().applicationContext
         AlertDialog.Builder(requireContext())
@@ -200,7 +200,7 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
                         try {
                             svc.enqueueDeleteBackupPackage(path, pkg)
                             queuedPkgs.add(pkg)
-                            val label = labelsByPkg[pkg] ?: pkg
+                            val label = labelsByPkg[pkg].orEmpty()
                             withContext(Dispatchers.Main) {
                                 TrueBackupOperationPoller.onUserQueuedOperation(
                                     appCtx,
@@ -271,7 +271,7 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
         }
         val screen = preferenceScreen
         val labelsByPkg = selectedPackages.associateWith { pkg ->
-            screen?.findPreference<androidx.preference.Preference>(pkg)?.title?.toString() ?: pkg
+            screen?.findPreference<androidx.preference.Preference>(pkg)?.title?.toString().orEmpty()
         }
         val toQueue = selectedPackages.toList()
         val appCtx = requireContext().applicationContext
@@ -281,7 +281,7 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
                 try {
                     svc.restorePackage(pkg, path)
                     startedAny = true
-                    val label = labelsByPkg[pkg] ?: pkg
+                    val label = labelsByPkg[pkg].orEmpty()
                     withContext(Dispatchers.Main) {
                         TrueBackupOperationPoller.onUserQueuedOperation(
                             appCtx,
@@ -437,7 +437,7 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
         return TrueBackupAppSelectorPreference(requireContext()).apply {
             key = row.packageName
             title = row.label
-            summary = row.packageName
+            summary = null
             icon = row.icon
             isPersistent = false
             isChecked = selectedPackages.contains(row.packageName)

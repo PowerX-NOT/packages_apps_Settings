@@ -68,17 +68,13 @@ object TrueBackupNotifications {
             "rekey" -> context.getString(R.string.true_backup_notif_rekey_title)
             else -> context.getString(R.string.true_backup_notif_backup_started_title)
         }
-        val mainText = appDisplayName.ifEmpty { packageName ?: "" }.ifEmpty {
+        val mainText = appDisplayName.ifEmpty {
             context.getString(R.string.true_backup_notif_preparing)
         }
         val safeProgress = progressPercent.coerceIn(0, 100)
         val textWithProgress = "$mainText ($safeProgress%)"
         val bigText = buildString {
             append(textWithProgress)
-            if (packageName != null && packageName.isNotEmpty() && mainText != packageName) {
-                append("\n")
-                append(packageName)
-            }
             if (queuedAfterCurrent > 0) {
                 append("\n")
                 append(context.getString(R.string.true_backup_notif_more_in_queue, queuedAfterCurrent))
