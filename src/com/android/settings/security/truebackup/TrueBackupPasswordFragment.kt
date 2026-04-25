@@ -138,7 +138,12 @@ class TrueBackupPasswordFragment : DashboardFragment() {
                             )
                             Toast.makeText(requireContext(), R.string.true_backup_password_saved, Toast.LENGTH_SHORT).show()
                         } else {
-                            Toast.makeText(requireContext(), R.string.true_backup_password_save_failed, Toast.LENGTH_LONG).show()
+                            val msgRes = if (!isReset) {
+                                R.string.true_backup_password_existing_backup_mismatch
+                            } else {
+                                R.string.true_backup_password_save_failed
+                            }
+                            Toast.makeText(requireContext(), msgRes, Toast.LENGTH_LONG).show()
                         }
                         refreshState()
                     }
