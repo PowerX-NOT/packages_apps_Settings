@@ -41,7 +41,7 @@ class TrueBackupPasswordFragment : DashboardFragment() {
             true
         }
         findPreference<Preference>("true_backup_password_reset")?.setOnPreferenceClickListener {
-            showSetPasswordDialog(isReset = true)
+            showDeletePasswordConfirmDialog()
             true
         }
     }
@@ -58,15 +58,19 @@ class TrueBackupPasswordFragment : DashboardFragment() {
         } catch (_: RemoteException) {
             false
         }
-        findPreference<Preference>("true_backup_password_reset")?.isEnabled = isSet && svc != null
+        findPreference<Preference>("true_backup_password_reset")?.apply {
+            isEnabled = isSet && svc != null
+            title = getString(R.string.true_backup_password_delete_title)
+            summary = getString(R.string.true_backup_password_delete_summary)
+        }
         findPreference<Preference>("true_backup_password_set")?.apply {
             isEnabled = svc != null
             title = getString(
-                if (isSet) R.string.true_backup_password_change_title
+                if (isSet) R.string.true_backup_password_reset_title
                 else R.string.true_backup_password_set_title
             )
             summary = getString(
-                if (isSet) R.string.true_backup_password_set_summary_is_set
+                if (isSet) R.string.true_backup_password_reset_summary
                 else R.string.true_backup_password_set_summary_not_set
             )
         }
@@ -164,6 +168,37 @@ class TrueBackupPasswordFragment : DashboardFragment() {
             .setCancelable(true)
             .show()
         vibrateMini()
+    }
+
+    private fun showDeletePasswordConfirmDialog() {
+        val svc = TrueBackupBinder.get()
+        if (svc == null) {
+            Toast.makeText(requireContext(), R.string.true_backup_toast_service_missing, Toast.LENGTH_LONG).show()
+            return
+        }
+        AlertDialog.Builder(requireContext())
+            .setTitle(R.string.true_backup_password_delete_confirm_title)
+            .setMessage(R.string.true_backup_password_delete_confirm_message)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                lifecycleScope.launch(Dispatchers.IO) {
+                    val ok = try {
+                        svc.clearRegistrationPassword()
+                    } catch (_: RemoteException) {
+                        false
+                    }
+                    withContext(Dispatchers.Main) {
+                        val res = if (ok) {
+                            R.string.true_backup_password_delete_done
+                        } else {
+                            R.string.true_backup_password_delete_failed
+                        }
+                        Toast.makeText(requireContext(), res, Toast.LENGTH_LONG).show()
+                        refreshState()
+                    }
+                }
+            }
+            .show()
     }
 
     private fun vibrateMini() {
