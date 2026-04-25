@@ -57,6 +57,7 @@ object TrueBackupNotifications {
         operationKind: String?,
         packageName: String?,
         appDisplayName: String,
+        progressPercent: Int,
         queuedAfterCurrent: Int,
     ) {
         val nm = context.getSystemService(NotificationManager::class.java) ?: return
@@ -70,8 +71,10 @@ object TrueBackupNotifications {
         val mainText = appDisplayName.ifEmpty { packageName ?: "" }.ifEmpty {
             context.getString(R.string.true_backup_notif_preparing)
         }
+        val safeProgress = progressPercent.coerceIn(0, 100)
+        val textWithProgress = "$mainText ($safeProgress%)"
         val bigText = buildString {
-            append(mainText)
+            append(textWithProgress)
             if (packageName != null && packageName.isNotEmpty() && mainText != packageName) {
                 append("\n")
                 append(packageName)
@@ -84,8 +87,8 @@ object TrueBackupNotifications {
         val n = newBuilder(context)
             .setSmallIcon(R.drawable.ic_settings_backup)
             .setContentTitle(title)
-            .setContentText(mainText)
-            .setProgress(0, 0, true)
+            .setContentText(textWithProgress)
+            .setProgress(100, safeProgress, false)
             .setOngoing(true)
             .setCategory(Notification.CATEGORY_PROGRESS)
             .setStyle(Notification.BigTextStyle().bigText(bigText))
