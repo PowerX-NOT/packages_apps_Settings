@@ -43,6 +43,8 @@ object TrueBackupOperationPoller {
     private var lastQueuedAfterCurrent: Int = 0
     private var completionFramePending = false
     private var completionFrameShownAtMs: Long = 0L
+    private var switchFramePending = false
+    private var switchFrameShownAtMs: Long = 0L
 
     @Volatile
     private var pollPosted = false
@@ -161,6 +163,16 @@ object TrueBackupOperationPoller {
                 appContext = null
                 return
             }
+            if (switchFramePending) {
+                val elapsed = SystemClock.uptimeMillis() - switchFrameShownAtMs
+                if (elapsed < 650L) {
+                    schedulePoll(650L - elapsed)
+                    return
+                }
+                // Done holding the previous task's 100% frame; proceed to show current task state.
+                switchFramePending = false
+                switchFrameShownAtMs = 0L
+            }
             completionFramePending = false
             sawWorkThisSession = true
             val kind = svc.activeOperationKind
@@ -190,7 +202,25 @@ object TrueBackupOperationPoller {
                 rawProgress > 100 -> 100
                 else -> rawProgress
             }
-            if (kind != lastKind || pkg != lastPkg) {
+            val changedTask = (lastKind != null || lastPkg != null) && (kind != lastKind || pkg != lastPkg)
+            if (changedTask && displayedProgressPercent < 100 && lastLabel.isNotEmpty()) {
+                // Queue advanced to a new task; show a brief 100% frame for the previous one.
+                switchFramePending = true
+                switchFrameShownAtMs = SystemClock.uptimeMillis()
+                displayedProgressPercent = 100
+                targetProgressPercent = 100
+                TrueBackupNotifications.updateActiveOperationProgress(
+                    ctx,
+                    lastKind,
+                    lastPkg,
+                    lastLabel,
+                    100,
+                    lastQueuedAfterCurrent,
+                )
+                schedulePoll(650L)
+                return
+            }
+            if (changedTask) {
                 displayedProgressPercent = 0
                 targetProgressPercent = 0
             }
@@ -234,6 +264,8 @@ object TrueBackupOperationPoller {
         lastQueuedAfterCurrent = 0
         completionFramePending = false
         completionFrameShownAtMs = 0L
+        switchFramePending = false
+        switchFrameShownAtMs = 0L
     }
 
     private fun clearOptimistic() {
