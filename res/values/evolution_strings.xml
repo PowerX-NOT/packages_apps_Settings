@@ -221,6 +221,7 @@
     <string name="true_backup_password_old_incorrect">Old password is incorrect</string>
     <string name="true_backup_password_saved">Password saved</string>
     <string name="true_backup_password_save_failed">Could not save password</string>
+    <string name="true_backup_password_existing_backup_mismatch">Backup data has been detected. The currently entered password does not match the password used to encrypt the existing backup. Please register using the old password, or clear the backup folder to register a new password.</string>
     <string name="true_backup_password_required">Set a TrueBackup password before backing up or restoring</string>
     <string name="true_backup_action_backup">Start backup</string>
     <string name="true_backup_action_restore_selected">Restore selected</string>
