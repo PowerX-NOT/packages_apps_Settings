@@ -117,6 +117,9 @@ class TrueBackupPasswordFragment : DashboardFragment() {
                 lifecycleScope.launch(Dispatchers.IO) {
                     var ok = false
                     try {
+                        TrueBackupPreferences.getBackupPath(appCtx)?.let { basePath ->
+                            svc.recordBackupBasePath(basePath)
+                        }
                         if (isReset) {
                             ok = svc.changeRegistrationPassword(oldPw, p1)
                         } else {
