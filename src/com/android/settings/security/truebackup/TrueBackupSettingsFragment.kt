@@ -36,6 +36,10 @@ class TrueBackupSettingsFragment : DashboardFragment() {
             val path = TrueBackupPreferences.uriTreeToDisplayPath(uri)
             if (path != null) {
                 TrueBackupPreferences.setBackupPath(requireContext(), path)
+                try {
+                    TrueBackupBinder.get()?.recordBackupBasePath(path)
+                } catch (_: Exception) {
+                }
             }
             updateLocationSummary()
         }
@@ -44,7 +48,15 @@ class TrueBackupSettingsFragment : DashboardFragment() {
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         super.onCreatePreferences(savedInstanceState, rootKey)
         findPreference<Preference>(KEY_LOCATION)?.setOnPreferenceClickListener {
-            openTree.launch(Intent(Intent.ACTION_OPEN_DOCUMENT_TREE))
+            val pickTree = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+                addFlags(
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
+                        Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION or
+                        Intent.FLAG_GRANT_PREFIX_URI_PERMISSION,
+                )
+            }
+            openTree.launch(pickTree)
             true
         }
         updateLocationSummary()
