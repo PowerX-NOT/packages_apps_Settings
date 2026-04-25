@@ -242,7 +242,7 @@ class TrueBackupBackupAppListFragment : DashboardFragment() {
         return TrueBackupAppSelectorPreference(requireContext()).apply {
             key = row.packageName
             title = row.label
-            summary = row.packageName
+            summary = null
             icon = row.icon
             isPersistent = false
             isEnabled = row.installed
