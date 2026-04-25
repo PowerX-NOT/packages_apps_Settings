@@ -33,6 +33,7 @@ object TrueBackupOperationPoller {
     private var optimisticPackage: String? = null
     private var optimisticLabel: String? = null
     private var sawWorkThisSession = false
+    private var sawRekeyThisSession = false
 
     @Volatile
     private var pollPosted = false
@@ -108,7 +109,11 @@ object TrueBackupOperationPoller {
             if (!svc.isOperationInProgress) {
                 stopPoll()
                 if (sawWorkThisSession) {
-                    TrueBackupNotifications.notifyAllOperationsFinished(ctx)
+                    if (sawRekeyThisSession) {
+                        TrueBackupNotifications.notifyRekeyFinished(ctx)
+                    } else {
+                        TrueBackupNotifications.notifyAllOperationsFinished(ctx)
+                    }
                     try {
                         onAllOperationsIdle?.invoke()
                     } catch (e: Exception) {
@@ -116,6 +121,7 @@ object TrueBackupOperationPoller {
                     }
                 }
                 sawWorkThisSession = false
+                sawRekeyThisSession = false
                 clearOptimistic()
                 appContext = null
                 return
@@ -128,6 +134,9 @@ object TrueBackupOperationPoller {
                 } else {
                     null
                 }
+            if (kind == KIND_REKEY || optimisticKind == KIND_REKEY) {
+                sawRekeyThisSession = true
+            }
             val optLabelSnapshot = optimisticLabel
             val activePkg = svc.activeOperationPackage
             val pkg = activePkg ?: optimisticPackage
