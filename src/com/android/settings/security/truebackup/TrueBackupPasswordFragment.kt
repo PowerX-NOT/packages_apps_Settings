@@ -5,7 +5,11 @@
 package com.android.settings.security.truebackup
 
 import android.os.Bundle
+import android.os.Build
 import android.os.RemoteException
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import android.text.InputType
 import android.widget.EditText
 import android.widget.Toast
@@ -143,13 +147,43 @@ class TrueBackupPasswordFragment : DashboardFragment() {
                             } else {
                                 R.string.true_backup_password_save_failed
                             }
-                            Toast.makeText(requireContext(), msgRes, Toast.LENGTH_LONG).show()
+                            showErrorDialogWithVibration(msgRes)
                         }
                         refreshState()
                     }
                 }
             }
             .show()
+    }
+
+    private fun showErrorDialogWithVibration(messageRes: Int) {
+        AlertDialog.Builder(requireContext())
+            .setTitle(R.string.true_backup_password_title)
+            .setMessage(messageRes)
+            .setPositiveButton(android.R.string.ok, null)
+            .setCancelable(true)
+            .show()
+        vibrateMini()
+    }
+
+    private fun vibrateMini() {
+        try {
+            val vibrator: Vibrator? =
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    requireContext().getSystemService(VibratorManager::class.java)?.defaultVibrator
+                } else {
+                    @Suppress("DEPRECATION")
+                    requireContext().getSystemService(Vibrator::class.java)
+                }
+            if (vibrator?.hasVibrator() != true) return
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator.vibrate(VibrationEffect.createOneShot(28L, VibrationEffect.DEFAULT_AMPLITUDE))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(28L)
+            }
+        } catch (_: Exception) {
+        }
     }
 
     override fun getMetricsCategory() = MetricsProto.MetricsEvent.EVOLVER
