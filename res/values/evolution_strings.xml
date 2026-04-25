@@ -214,6 +214,12 @@
     <string name="true_backup_password_set_summary_is_set">Set</string>
     <string name="true_backup_password_reset_title">Reset password</string>
     <string name="true_backup_password_reset_summary">Change the password and re-encrypt existing backups</string>
+    <string name="true_backup_password_delete_title">Delete password</string>
+    <string name="true_backup_password_delete_summary">Remove the current registration password</string>
+    <string name="true_backup_password_delete_confirm_title">Delete password?</string>
+    <string name="true_backup_password_delete_confirm_message">This removes the current registration password. Backups encrypted with the old password will still require that password for restore/rekey.</string>
+    <string name="true_backup_password_delete_done">Password deleted</string>
+    <string name="true_backup_password_delete_failed">Could not delete password</string>
     <string name="true_backup_password_hint_old">Old password</string>
     <string name="true_backup_password_hint_new">New password</string>
     <string name="true_backup_password_hint_confirm">Confirm password</string>
