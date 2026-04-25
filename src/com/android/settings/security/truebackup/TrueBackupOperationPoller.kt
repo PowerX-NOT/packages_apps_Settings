@@ -9,6 +9,7 @@ import android.content.pm.PackageManager
 import android.os.Handler
 import android.os.Looper
 import android.os.RemoteException
+import android.os.SystemClock
 import android.util.Log
 
 private const val LOG_TAG = "TrueBackupOpPoller"
@@ -34,6 +35,14 @@ object TrueBackupOperationPoller {
     private var optimisticLabel: String? = null
     private var sawWorkThisSession = false
     private var sawRekeyThisSession = false
+    private var displayedProgressPercent = 0
+    private var targetProgressPercent = 0
+    private var lastKind: String? = null
+    private var lastPkg: String? = null
+    private var lastLabel: String = ""
+    private var lastQueuedAfterCurrent: Int = 0
+    private var completionFramePending = false
+    private var completionFrameShownAtMs: Long = 0L
 
     @Volatile
     private var pollPosted = false
@@ -99,6 +108,7 @@ object TrueBackupOperationPoller {
         val svc = TrueBackupBinder.get()
         if (svc == null) {
             Log.w(LOG_TAG, "binder null; stop polling")
+            resetProgressState()
             clearOptimistic()
             appContext = null
             sawWorkThisSession = false
@@ -107,6 +117,30 @@ object TrueBackupOperationPoller {
         }
         try {
             if (!svc.isOperationInProgress) {
+                if (sawWorkThisSession && !completionFramePending && (displayedProgressPercent < 100)) {
+                    completionFramePending = true
+                    completionFrameShownAtMs = SystemClock.uptimeMillis()
+                    displayedProgressPercent = 100
+                    targetProgressPercent = 100
+                    TrueBackupNotifications.updateActiveOperationProgress(
+                        ctx,
+                        lastKind,
+                        lastPkg,
+                        lastLabel,
+                        100,
+                        lastQueuedAfterCurrent,
+                    )
+                    // Keep 100% visible briefly before final completion notification.
+                    schedulePoll(900L)
+                    return
+                }
+                if (completionFramePending) {
+                    val elapsed = SystemClock.uptimeMillis() - completionFrameShownAtMs
+                    if (elapsed < 900L) {
+                        schedulePoll(900L - elapsed)
+                        return
+                    }
+                }
                 stopPoll()
                 if (sawWorkThisSession) {
                     if (sawRekeyThisSession) {
@@ -122,10 +156,12 @@ object TrueBackupOperationPoller {
                 }
                 sawWorkThisSession = false
                 sawRekeyThisSession = false
+                resetProgressState()
                 clearOptimistic()
                 appContext = null
                 return
             }
+            completionFramePending = false
             sawWorkThisSession = true
             val kind = svc.activeOperationKind
                 ?: optimisticKind
@@ -148,22 +184,56 @@ object TrueBackupOperationPoller {
             } else {
                 resolveDisplayName(ctx, pkg, optLabelSnapshot)
             }
+            val rawProgress = svc.activeOperationProgressPercent
+            val serverProgress = when {
+                rawProgress < 0 -> targetProgressPercent
+                rawProgress > 100 -> 100
+                else -> rawProgress
+            }
+            if (kind != lastKind || pkg != lastPkg) {
+                displayedProgressPercent = 0
+                targetProgressPercent = 0
+            }
+            targetProgressPercent = maxOf(targetProgressPercent, serverProgress)
+            val step = when {
+                displayedProgressPercent < 30 -> 3
+                displayedProgressPercent < 70 -> 2
+                else -> 1
+            }
+            displayedProgressPercent = minOf(targetProgressPercent, displayedProgressPercent + step)
             val queued = svc.queuedOperationCount
+            lastKind = kind
+            lastPkg = pkg
+            lastLabel = label
+            lastQueuedAfterCurrent = queued
             TrueBackupNotifications.updateActiveOperationProgress(
                 ctx,
                 kind,
                 pkg,
                 label,
+                displayedProgressPercent,
                 queued,
             )
-            schedulePoll(1000L)
+            schedulePoll(220L)
         } catch (e: RemoteException) {
             Log.e(LOG_TAG, "poll", e)
             stopPoll()
+            resetProgressState()
             clearOptimistic()
             appContext = null
             sawWorkThisSession = false
         }
+    }
+
+    private fun resetProgressState() {
+        displayedProgressPercent = 0
+        targetProgressPercent = 0
+        lastKind = null
+        lastPkg = null
+        lastLabel = ""
+        lastQueuedAfterCurrent = 0
+        completionFramePending = false
+        completionFrameShownAtMs = 0L
     }
 
     private fun clearOptimistic() {
