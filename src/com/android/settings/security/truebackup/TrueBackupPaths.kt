@@ -4,11 +4,9 @@
 
 package com.android.settings.security.truebackup
 
-import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileInputStream
-import java.nio.charset.StandardCharsets
 
 object TrueBackupPaths {
     const val PACKAGE_RESTORE_CONFIG = "package_restore_config.json"
@@ -48,52 +46,6 @@ object TrueBackupPaths {
         val candidate2 = File(base, "apps")
         if (candidate2.isDirectory) return candidate2
 
-        return null
-    }
-
-    /**
-     * Finds a per-package backup directory containing [PACKAGE_RESTORE_CONFIG] using the same
-     * scan logic as the system service, without binder (fallback when service is unavailable).
-     */
-    @JvmStatic
-    fun findBackupPackageDirLocal(basePath: String?, packageName: String): File? {
-        if (basePath.isNullOrBlank() || packageName.isEmpty()) return null
-        for (appsDir in candidateAppsDirs(basePath)) {
-            findInAppsDir(appsDir, packageName)?.let { return it }
-        }
-        return null
-    }
-
-    /** Tries [resolveAppsDir] plus explicit `apps` and `backup/apps` under [basePath]. */
-    private fun candidateAppsDirs(basePath: String): List<File> {
-        val base = File(basePath)
-        val out = LinkedHashSet<File>()
-        resolveAppsDir(basePath)?.let { out.add(it) }
-        val directApps = File(base, "apps")
-        if (directApps.isDirectory) out.add(directApps)
-        val underBackup = File(File(base, "backup"), "apps")
-        if (underBackup.isDirectory) out.add(underBackup)
-        return out.toList()
-    }
-
-    private fun findInAppsDir(appsDir: File, packageName: String): File? {
-        val direct = File(appsDir, packageName)
-        if (direct.isDirectory && File(direct, PACKAGE_RESTORE_CONFIG).isFile()) {
-            return direct
-        }
-        appsDir.listFiles()?.forEach { dir ->
-            if (!dir.isDirectory) return@forEach
-            val cfg = File(dir, PACKAGE_RESTORE_CONFIG)
-            if (!cfg.isFile) return@forEach
-            try {
-                val json = String(readFully(cfg), StandardCharsets.UTF_8)
-                val root = JSONObject(json)
-                val pi = root.optJSONObject("packageInfo")
-                val p = pi?.optString("packageName", null)?.takeIf { it.isNotEmpty() } ?: dir.name
-                if (p == packageName) return dir
-            } catch (_: Exception) {
-            }
-        }
         return null
     }
 

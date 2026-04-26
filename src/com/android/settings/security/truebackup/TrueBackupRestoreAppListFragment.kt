@@ -460,7 +460,7 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
         )
     }
 
-    /** Prefer [ITrueBackupService], then [TrueBackupPaths.findBackupPackageDirLocal]. */
+    /** Resolve per-package backup directory via [ITrueBackupService]. */
     private fun resolveBackupPackageDir(ctx: Context, backupPath: String, packageName: String): File? {
         TrueBackupBinder.get()?.let { svc ->
             try {
@@ -474,7 +474,7 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
             } catch (_: RemoteException) {
             }
         }
-        return TrueBackupPaths.findBackupPackageDirLocal(backupPath, packageName)
+        return null
     }
 
     private fun isPackageInstalled(pm: PackageManager, packageName: String): Boolean {

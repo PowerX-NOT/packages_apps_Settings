@@ -87,9 +87,6 @@ class TrueBackupRestoreBackupDetailsFragment : DashboardFragment() {
             } catch (_: RemoteException) {
             }
         }
-        if (backupDir == null) {
-            backupDir = TrueBackupPaths.findBackupPackageDirLocal(basePath, packageNameArg)
-        }
         if (appsRoot == null && backupDir != null) {
             val parent = backupDir.parentFile
             if (parent != null && parent.name == "apps" && parent.isDirectory) {
@@ -134,9 +131,6 @@ class TrueBackupRestoreBackupDetailsFragment : DashboardFragment() {
                 }
             } catch (_: RemoteException) {
             }
-        }
-        if (backupDir == null) {
-            backupDir = TrueBackupPaths.findBackupPackageDirLocal(basePath, packageNameArg)
         }
 
         val root = try {
@@ -508,7 +502,20 @@ private fun resolveBackupDirFromMetadata(
         ?.optString("packageName", null)
         ?.takeIf { it.isNotEmpty() }
         ?: packageNameArg
-    return TrueBackupPaths.findBackupPackageDirLocal(basePath, pkg) ?: current?.takeIf { it.isDirectory }
+    val svc = TrueBackupBinder.get()
+    if (svc != null) {
+        try {
+            val path = svc.resolveBackupPackageDir(basePath, pkg)
+            if (!path.isNullOrEmpty()) {
+                val resolved = File(path)
+                if (resolved.isDirectory && configFile(resolved).isFile()) {
+                    return resolved
+                }
+            }
+        } catch (_: RemoteException) {
+        }
+    }
+    return current?.takeIf { it.isDirectory }
 }
 
 private fun prefLine(ctx: Context, key: String, titleRes: Int, summary: CharSequence): Preference =
