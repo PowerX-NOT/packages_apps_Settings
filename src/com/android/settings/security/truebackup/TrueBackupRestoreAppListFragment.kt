@@ -274,10 +274,63 @@ class TrueBackupRestoreAppListFragment : DashboardFragment() {
             screen?.findPreference<androidx.preference.Preference>(pkg)?.title?.toString().orEmpty()
         }
         val toQueue = selectedPackages.toList()
+        val pm = requireContext().packageManager
+        val installed = toQueue.filter { pkg -> isPackageInstalled(pm, pkg) }
+        if (installed.isNotEmpty()) {
+            showOverwriteConfirmDialog(
+                installedPkgs = installed,
+                allPkgs = toQueue,
+                labelsByPkg = labelsByPkg,
+                path = path,
+                svc = svc,
+            )
+            return
+        }
+        queueRestorePackages(toQueue, labelsByPkg, path, svc)
+    }
+
+    private fun showOverwriteConfirmDialog(
+        installedPkgs: List<String>,
+        allPkgs: List<String>,
+        labelsByPkg: Map<String, String>,
+        path: String,
+        svc: android.os.ITrueBackupService,
+    ) {
+        val msg = if (installedPkgs.size == 1) {
+            val label = labelsByPkg[installedPkgs[0]].orEmpty()
+            getString(R.string.true_backup_restore_overwrite_message_single, label)
+        } else {
+            val list = installedPkgs.joinToString(separator = "\n") { labelsByPkg[it].orEmpty() }
+            getString(R.string.true_backup_restore_overwrite_message_multi, list)
+        }
+        AlertDialog.Builder(requireContext())
+            .setTitle(R.string.true_backup_restore_overwrite_title)
+            .setMessage(msg)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setNeutralButton(R.string.true_backup_restore_skip_installed_action) { _, _ ->
+                val remaining = allPkgs.filterNot { installedPkgs.contains(it) }
+                queueRestorePackages(remaining, labelsByPkg, path, svc)
+            }
+            .setPositiveButton(R.string.true_backup_restore_overwrite_action) { _, _ ->
+                queueRestorePackages(allPkgs, labelsByPkg, path, svc)
+            }
+            .show()
+    }
+
+    private fun queueRestorePackages(
+        pkgs: List<String>,
+        labelsByPkg: Map<String, String>,
+        path: String,
+        svc: android.os.ITrueBackupService,
+    ) {
+        if (pkgs.isEmpty()) {
+            Toast.makeText(requireContext(), R.string.true_backup_toast_no_apps_selected, Toast.LENGTH_SHORT).show()
+            return
+        }
         val appCtx = requireContext().applicationContext
         lifecycleScope.launch(Dispatchers.IO) {
             var startedAny = false
-            for (pkg in toQueue) {
+            for (pkg in pkgs) {
                 try {
                     svc.restorePackage(pkg, path)
                     startedAny = true

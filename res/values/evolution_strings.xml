@@ -204,6 +204,11 @@
     <string name="true_backup_backup_apps_summary">Select one app, then start backup from the menu</string>
     <string name="true_backup_restore_apps_title">Restore apps</string>
     <string name="true_backup_restore_apps_summary">Select one backed-up app to restore</string>
+    <string name="true_backup_restore_overwrite_title">Overwrite existing app data?</string>
+    <string name="true_backup_restore_overwrite_message_single">%1$s is already installed. Restore will overwrite its existing app data.</string>
+    <string name="true_backup_restore_overwrite_message_multi">Some selected apps are already installed. Restoring will overwrite their existing app data:\n\n%1$s</string>
+    <string name="true_backup_restore_overwrite_action">Overwrite</string>
+    <string name="true_backup_restore_skip_installed_action">Skip installed</string>
 
     <string name="true_backup_password_title">Registration password</string>
     <string name="true_backup_password_summary">Encrypt backups with a TrueBackup password</string>
