@@ -86,7 +86,7 @@
         android:title="@string/true_backup_title"
         android:summary="@string/true_backup_summary"
         android:order="-992"
-        android:fragment="com.android.settings.security.truebackup.TrueBackupSettingsFragment" />
+        android:fragment="com.android.settings.truebackup.TrueBackupSettingsFragment" />
 
     <Preference
         android:key="game_settings"

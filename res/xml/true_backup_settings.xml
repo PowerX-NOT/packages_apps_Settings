@@ -14,20 +14,20 @@
         android:title="@string/true_backup_password_title"
         android:summary="@string/true_backup_password_summary"
         settings:searchable="false"
-        android:fragment="com.android.settings.security.truebackup.TrueBackupPasswordFragment" />
+        android:fragment="com.android.settings.truebackup.TrueBackupPasswordFragment" />
 
     <Preference
         android:key="true_backup_backup_apps"
         android:title="@string/true_backup_backup_apps_title"
         android:summary="@string/true_backup_backup_apps_summary"
         settings:searchable="false"
-        android:fragment="com.android.settings.security.truebackup.TrueBackupBackupAppListFragment" />
+        android:fragment="com.android.settings.truebackup.TrueBackupBackupAppListFragment" />
 
     <Preference
         android:key="true_backup_restore_apps"
         android:title="@string/true_backup_restore_apps_title"
         android:summary="@string/true_backup_restore_apps_summary"
         settings:searchable="false"
-        android:fragment="com.android.settings.security.truebackup.TrueBackupRestoreAppListFragment" />
+        android:fragment="com.android.settings.truebackup.TrueBackupRestoreAppListFragment" />
 
 </PreferenceScreen>
